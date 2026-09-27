@@ -112,6 +112,22 @@ export default async function Footer() {
               <span className="txt-small-plus txt-ui-fg-base">Yarnly</span>
               <ul className="grid grid-cols-1 gap-y-2 text-ui-fg-subtle txt-small">
                 <li>
+                  <LocalizedClientLink
+                    href="/nghe-nhan"
+                    className="hover:text-ui-fg-base"
+                  >
+                    Nghệ nhân
+                  </LocalizedClientLink>
+                </li>
+                <li>
+                  <LocalizedClientLink
+                    href="/kenh-nghe-nhan"
+                    className="hover:text-ui-fg-base"
+                  >
+                    Kênh nghệ nhân
+                  </LocalizedClientLink>
+                </li>
+                <li>
                   <a
                     href="https://github.com/medusajs"
                     target="_blank"

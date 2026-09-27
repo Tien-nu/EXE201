@@ -89,6 +89,19 @@ const AccountNav = ({
                   </LocalizedClientLink>
                 </li>
                 <li>
+                  <LocalizedClientLink
+                    href="/account/yeu-cau-lam-rieng"
+                    className="flex items-center justify-between py-4 border-b border-gray-200 px-8"
+                    data-testid="custom-requests-link"
+                  >
+                    <div className="flex items-center gap-x-2">
+                      <Package size={20} />
+                      <span>Yêu cầu làm riêng</span>
+                    </div>
+                    <ChevronDown className="transform -rotate-90" />
+                  </LocalizedClientLink>
+                </li>
+                <li>
                   <button
                     type="button"
                     className="flex items-center justify-between py-4 border-b border-gray-200 px-8 w-full"
@@ -148,6 +161,15 @@ const AccountNav = ({
                   data-testid="orders-link"
                 >
                   Orders
+                </AccountNavLink>
+              </li>
+              <li>
+                <AccountNavLink
+                  href="/account/yeu-cau-lam-rieng"
+                  route={route!}
+                  data-testid="custom-requests-link"
+                >
+                  Yêu cầu làm riêng
                 </AccountNavLink>
               </li>
               <li className="text-grey-700">

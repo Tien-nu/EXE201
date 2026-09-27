@@ -13,5 +13,36 @@ module.exports = defineConfig({
       jwtSecret: process.env.JWT_SECRET,
       cookieSecret: process.env.COOKIE_SECRET,
     }
-  }
+  },
+  modules: [
+    {
+      resolve: './src/modules/marketplace',
+    },
+    {
+      resolve: '@medusajs/medusa/notification',
+      options: {
+        providers: [
+          {
+            resolve: '@medusajs/medusa/notification-local',
+            id: 'local',
+            options: {
+              channels: ['feed'],
+            },
+          },
+          {
+            resolve: './src/modules/email-notification',
+            id: 'yarnly-email',
+            options: {
+              channels: ['email'],
+              host: process.env.SMTP_HOST,
+              port: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : undefined,
+              user: process.env.SMTP_USER,
+              pass: process.env.SMTP_PASS,
+              from: process.env.SMTP_FROM,
+            },
+          },
+        ],
+      },
+    },
+  ],
 })

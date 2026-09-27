@@ -44,17 +44,6 @@ const Payment = ({
 
   const isOpen = searchParams.get("step") === "payment"
 
-  // Simulate auto-verification for Bank Transfer
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout
-    if (isOpen && selectedPaymentMethod === "manual_bank") {
-      timeoutId = setTimeout(() => {
-        handleSubmit()
-      }, 5000) // 5 seconds simulation
-    }
-    return () => clearTimeout(timeoutId)
-  }, [isOpen, selectedPaymentMethod])
-
   const actualProviderId = (methodId: string) => {
     if (methodId === "manual_cod" || methodId === "manual_bank") return "pp_system_default"
     return methodId
@@ -199,23 +188,14 @@ const Payment = ({
                           selectedPaymentOptionId={selectedPaymentMethod}
                         />
                         {paymentMethod.id === "manual_bank" && selectedPaymentMethod === "manual_bank" && (
-                          <div className="mt-4 p-4 bg-gray-50 rounded-md border border-gray-200">
-                            <Text className="txt-medium-plus font-semibold mb-2 text-center text-blue-600">Quét mã QR để chuyển khoản</Text>
-                            <div className="flex justify-center mb-4">
-                              <img 
-                                src={`https://img.vietqr.io/image/mb-0912037670-compact2.png?amount=${cart.item_total}&addInfo=Thanh toan don hang ${cart.id.split('_')[1]}&accountName=YARNLY STORE`} 
-                                alt="QR Code" 
-                                className="w-64 h-auto rounded-md shadow-sm border border-gray-200 bg-white p-2" 
-                              />
-                            </div>
-                            <Text className="txt-medium text-center">Ngân hàng: <strong>MB Bank</strong></Text>
-                            <Text className="txt-medium text-center">Chủ tài khoản: <strong>YARNLY STORE</strong></Text>
-                            <Text className="txt-medium text-center">Số tài khoản: <strong>0912037670</strong></Text>
-                            <Text className="txt-medium text-center mt-2 text-ui-fg-subtle">
-                              Nội dung chuyển khoản: <span className="font-semibold text-black">Thanh toan don hang {cart.id.split('_')[1]}</span>
+                          <div className="mt-4 p-4 bg-amber-50 rounded-md border border-amber-200">
+                            <Text className="txt-medium">
+                              Sau khi đặt hàng, mã <strong>VietQR</strong> sẽ hiện ra.
+                              Bạn có <strong>10 phút</strong> để chuyển khoản tiền hàng
+                              và bấm &quot;Tôi đã chuyển khoản&quot;, nếu không đơn sẽ tự huỷ.
                             </Text>
-                            <Text className="txt-medium text-center italic text-sm mt-4 text-green-600 animate-pulse">
-                              Hệ thống đang tự động kiểm tra giao dịch...
+                            <Text className="txt-medium mt-2 text-ui-fg-subtle">
+                              Phí ship trả cho đơn vị vận chuyển khi nhận hàng.
                             </Text>
                           </div>
                         )}
@@ -246,23 +226,21 @@ const Payment = ({
             data-testid="payment-method-error-message"
           />
 
-          {selectedPaymentMethod !== "manual_bank" && (
-            <Button
-              size="large"
-              className="mt-6"
-              onClick={handleSubmit}
-              isLoading={isLoading}
-              disabled={
-                (isStripeLike(selectedPaymentMethod) && !paymentComplete) ||
-                (!selectedPaymentMethod && !paidByGiftcard)
-              }
-              data-testid="submit-payment-button"
-            >
-              {!activeSession && isStripeLike(selectedPaymentMethod)
-                ? "Enter payment details"
-                : "Continue to review"}
-            </Button>
-          )}
+          <Button
+            size="large"
+            className="mt-6"
+            onClick={handleSubmit}
+            isLoading={isLoading}
+            disabled={
+              (isStripeLike(selectedPaymentMethod) && !paymentComplete) ||
+              (!selectedPaymentMethod && !paidByGiftcard)
+            }
+            data-testid="submit-payment-button"
+          >
+            {!activeSession && isStripeLike(selectedPaymentMethod)
+              ? "Enter payment details"
+              : "Continue to review"}
+          </Button>
         </div>
 
         <div className={isOpen ? "hidden" : "block"}>
