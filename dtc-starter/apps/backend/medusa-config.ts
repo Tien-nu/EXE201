@@ -11,6 +11,9 @@ module.exports = defineConfig({
       adminCors: process.env.ADMIN_CORS!,
       authCors: process.env.AUTH_CORS!,
       jwtSecret: process.env.JWT_SECRET,
+      // Storefront keeps the login cookie for 7 days; a 1-day token (Medusa's
+      // default) made pages fail with "Unauthorized" after a day.
+      jwtExpiresIn: '7d',
       cookieSecret: process.env.COOKIE_SECRET,
     }
   },

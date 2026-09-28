@@ -97,6 +97,50 @@ async function getCountryCode(
   return countryCode
 }
 
+// Login tokens of customers and artisans. A token that expired (or cannot be
+// read) is dropped here, so pages treat the visitor as signed out and show
+// the login form instead of failing with "Unauthorized".
+const AUTH_COOKIES = ["_medusa_jwt", "_yarnly_artisan_jwt"]
+
+function isExpiredToken(token: string) {
+  try {
+    const payload = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")
+    const padded = payload + "=".repeat((4 - (payload.length % 4)) % 4)
+    const { exp } = JSON.parse(atob(padded)) as { exp?: number }
+    // A small margin so a token does not expire in the middle of a request.
+    return typeof exp === "number" && exp * 1000 < Date.now() + 30_000
+  } catch {
+    return true
+  }
+}
+
+function dropExpiredLogins(request: NextRequest) {
+  const expired = AUTH_COOKIES.filter((name) => {
+    const value = request.cookies.get(name)?.value
+    return value !== undefined && isExpiredToken(value)
+  })
+
+  // Hide them from this request's server rendering too, not only the browser:
+  // pages read the Cookie header forwarded here.
+  const headers = new Headers(request.headers)
+
+  if (expired.length) {
+    const kept = request.cookies
+      .getAll()
+      .filter((cookie) => !expired.includes(cookie.name))
+      .map((cookie) => `${cookie.name}=${cookie.value}`)
+      .join("; ")
+    headers.set("cookie", kept)
+  }
+
+  const finish = <T extends NextResponse>(response: T) => {
+    expired.forEach((name) => response.cookies.delete(name))
+    return response
+  }
+
+  return { headers, finish }
+}
+
 /**
  * Middleware to handle region selection and onboarding status.
  */
@@ -104,6 +148,9 @@ export async function middleware(request: NextRequest) {
   if (request.nextUrl.pathname.includes(".")) {
     return NextResponse.next()
   }
+
+  const logins = dropExpiredLogins(request)
+  const next = () => logins.finish(NextResponse.next({ request: { headers: logins.headers } }))
 
   const cacheIdCookie = request.cookies.get("_medusa_cache_id")
   const cacheId = cacheIdCookie?.value || crypto.randomUUID()
@@ -118,13 +165,13 @@ export async function middleware(request: NextRequest) {
 
   if (urlHasCountry) {
     if (!cacheIdCookie) {
-      const response = NextResponse.next()
+      const response = next()
       response.cookies.set("_medusa_cache_id", cacheId, {
         maxAge: 60 * 60 * 24,
       })
       return response
     }
-    return NextResponse.next()
+    return next()
   }
 
   // if the url doesn't have the country, redirect to it
@@ -133,7 +180,7 @@ export async function middleware(request: NextRequest) {
   const queryString = request.nextUrl.search || ""
   const redirectUrl = `${request.nextUrl.origin}/${country}${redirectPath}${queryString}`
 
-  return NextResponse.redirect(redirectUrl, 307)
+  return logins.finish(NextResponse.redirect(redirectUrl, 307))
 }
 
 export const config = {
