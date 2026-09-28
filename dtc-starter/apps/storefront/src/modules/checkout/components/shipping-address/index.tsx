@@ -29,7 +29,7 @@ const ShippingAddress = ({
     email: cart?.email || "",
   })
 
-  // Vietnam Administrative Units State
+  // GHN API Administrative Units State
   const [provinces, setProvinces] = useState<any[]>([])
   const [districts, setDistricts] = useState<any[]>([])
   const [wards, setWards] = useState<any[]>([])
@@ -38,53 +38,81 @@ const ShippingAddress = ({
   const initialWard = addressParts.length >= 2 ? addressParts.pop() || "" : ""
   const initialStreet = addressParts.join(", ")
 
-  const [selectedProvince, setSelectedProvince] = useState<string>(cart?.shipping_address?.province || "")
-  const [selectedDistrict, setSelectedDistrict] = useState<string>(cart?.shipping_address?.city || "")
-  const [selectedWard, setSelectedWard] = useState<string>(initialWard)
+  const [selectedProvinceId, setSelectedProvinceId] = useState<string>("")
+  const [selectedProvinceName, setSelectedProvinceName] = useState<string>(cart?.shipping_address?.province || "")
+  
+  const [selectedDistrictId, setSelectedDistrictId] = useState<string>(cart?.metadata?.district_id as string || "")
+  const [selectedDistrictName, setSelectedDistrictName] = useState<string>(cart?.shipping_address?.city || "")
+  
+  const [selectedWardCode, setSelectedWardCode] = useState<string>(cart?.metadata?.ward_code as string || "")
+  const [selectedWardName, setSelectedWardName] = useState<string>(initialWard)
+  
   const [streetAddress, setStreetAddress] = useState<string>(initialStreet)
 
   // Prevent sync to formData on first render if nothing actually changed by the user
   const [isInitialized, setIsInitialized] = useState(false)
 
-  // Fetch provinces on mount
+  // Fetch provinces on mount from our custom backend API
   useEffect(() => {
-    fetch("https://provinces.open-api.vn/api/p/")
+    const baseUrl = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || "http://localhost:9000"
+    const apiKey = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || ""
+    fetch(`${baseUrl}/store/ghn/provinces`, { headers: { "x-publishable-api-key": apiKey } })
       .then(res => res.json())
-      .then(data => setProvinces(data))
+      .then(result => {
+        if (result.data) {
+          setProvinces(result.data)
+          // Find matching province ID if province name was already saved
+          if (cart?.shipping_address?.province) {
+            const p = result.data.find((p: any) => p.ProvinceName === cart.shipping_address?.province)
+            if (p) setSelectedProvinceId(p.ProvinceID)
+          }
+        }
+      })
       .catch(console.error)
   }, [])
 
   // Fetch districts when province changes
   useEffect(() => {
-    if (selectedProvince) {
-      const province = provinces.find(p => p.name === selectedProvince)
-      if (province) {
-        fetch(`https://provinces.open-api.vn/api/p/${province.code}?depth=2`)
-          .then(res => res.json())
-          .then(data => setDistricts(data.districts))
-          .catch(console.error)
-      }
+    if (selectedProvinceId) {
+      const baseUrl = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || "http://localhost:9000"
+      const apiKey = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || ""
+      fetch(`${baseUrl}/store/ghn/districts?province_id=${selectedProvinceId}`, { headers: { "x-publishable-api-key": apiKey } })
+        .then(res => res.json())
+        .then(result => {
+          if (result.data) {
+            setDistricts(result.data)
+            // Prevent clearing district if it matches existing metadata
+            if (!selectedDistrictId) setSelectedDistrictName("")
+          }
+        })
+        .catch(console.error)
     } else {
       setDistricts([])
-      setSelectedDistrict("")
+      setSelectedDistrictId("")
+      setSelectedDistrictName("")
     }
-  }, [selectedProvince, provinces])
+  }, [selectedProvinceId])
 
   // Fetch wards when district changes
   useEffect(() => {
-    if (selectedDistrict) {
-      const district = districts.find(d => d.name === selectedDistrict)
-      if (district) {
-        fetch(`https://provinces.open-api.vn/api/d/${district.code}?depth=2`)
-          .then(res => res.json())
-          .then(data => setWards(data.wards))
-          .catch(console.error)
-      }
+    if (selectedDistrictId) {
+      const baseUrl = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || "http://localhost:9000"
+      const apiKey = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || ""
+      fetch(`${baseUrl}/store/ghn/wards?district_id=${selectedDistrictId}`, { headers: { "x-publishable-api-key": apiKey } })
+        .then(res => res.json())
+        .then(result => {
+          if (result.data) {
+            setWards(result.data)
+            if (!selectedWardCode) setSelectedWardName("")
+          }
+        })
+        .catch(console.error)
     } else {
       setWards([])
-      setSelectedWard("")
+      setSelectedWardCode("")
+      setSelectedWardName("")
     }
-  }, [selectedDistrict, districts])
+  }, [selectedDistrictId])
 
   // Sync back to formData
   useEffect(() => {
@@ -92,15 +120,14 @@ const ShippingAddress = ({
       setIsInitialized(true)
       return
     }
-    const fullAddress = [streetAddress, selectedWard].filter(Boolean).join(", ")
+    const fullAddress = [streetAddress, selectedWardName].filter(Boolean).join(", ")
     setFormData(prev => ({
       ...prev,
-      "shipping_address.province": selectedProvince,
-      "shipping_address.city": selectedDistrict,
+      "shipping_address.province": selectedProvinceName,
+      "shipping_address.city": selectedDistrictName,
       "shipping_address.address_1": fullAddress
     }))
-  }, [selectedProvince, selectedDistrict, selectedWard, streetAddress, isInitialized])
-
+  }, [selectedProvinceName, selectedDistrictName, selectedWardName, streetAddress, isInitialized])
 
   const countriesInRegion = useMemo(
     () => cart?.region?.countries?.map((c) => c.iso_2),
@@ -132,15 +159,15 @@ const ShippingAddress = ({
         "shipping_address.phone": address?.phone || "",
       }))
 
-      setSelectedProvince(address.province || "")
-      setSelectedDistrict(address.city || "")
+      setSelectedProvinceName(address.province || "")
+      setSelectedDistrictName(address.city || "")
       const parts = (address.address_1 || "").split(", ")
       if (parts.length >= 2) {
-        setSelectedWard(parts.pop() || "")
+        setSelectedWardName(parts.pop() || "")
         setStreetAddress(parts.join(", "))
       } else {
         setStreetAddress(address.address_1 || "")
-        setSelectedWard("")
+        setSelectedWardName("")
       }
     }
 
@@ -233,32 +260,53 @@ const ShippingAddress = ({
         <div className="grid grid-cols-3 gap-4">
           <select 
             className="flex items-center justify-between px-4 py-2 border rounded-md text-sm border-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-900 bg-white"
-            value={selectedProvince} 
-            onChange={(e) => setSelectedProvince(e.target.value)}
+            value={selectedProvinceId} 
+            onChange={(e) => {
+              const selectedOptions = Array.from(e.target.selectedOptions);
+              const pName = selectedOptions[0]?.text;
+              setSelectedProvinceId(e.target.value);
+              setSelectedProvinceName(pName);
+              setSelectedDistrictId("");
+              setSelectedDistrictName("");
+              setSelectedWardCode("");
+              setSelectedWardName("");
+            }}
             required
           >
             <option value="">Chọn Tỉnh / Thành phố</option>
-            {provinces.map(p => <option key={p.code} value={p.name}>{p.name}</option>)}
+            {provinces.map(p => <option key={p.ProvinceID} value={p.ProvinceID}>{p.ProvinceName}</option>)}
           </select>
           <select 
             className="flex items-center justify-between px-4 py-2 border rounded-md text-sm border-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-900 bg-white disabled:bg-gray-100"
-            value={selectedDistrict} 
-            onChange={(e) => setSelectedDistrict(e.target.value)}
-            disabled={!selectedProvince}
+            value={selectedDistrictId} 
+            onChange={(e) => {
+              const selectedOptions = Array.from(e.target.selectedOptions);
+              const dName = selectedOptions[0]?.text;
+              setSelectedDistrictId(e.target.value);
+              setSelectedDistrictName(dName);
+              setSelectedWardCode("");
+              setSelectedWardName("");
+            }}
+            disabled={!selectedProvinceId}
             required
           >
             <option value="">Chọn Quận / Huyện</option>
-            {districts.map(d => <option key={d.code} value={d.name}>{d.name}</option>)}
+            {districts.map(d => <option key={d.DistrictID} value={d.DistrictID}>{d.DistrictName}</option>)}
           </select>
           <select 
             className="flex items-center justify-between px-4 py-2 border rounded-md text-sm border-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-900 bg-white disabled:bg-gray-100"
-            value={selectedWard} 
-            onChange={(e) => setSelectedWard(e.target.value)}
-            disabled={!selectedDistrict}
+            value={selectedWardCode} 
+            onChange={(e) => {
+              const selectedOptions = Array.from(e.target.selectedOptions);
+              const wName = selectedOptions[0]?.text;
+              setSelectedWardCode(e.target.value);
+              setSelectedWardName(wName);
+            }}
+            disabled={!selectedDistrictId}
             required
           >
             <option value="">Chọn Phường / Xã</option>
-            {wards.map(w => <option key={w.code} value={w.name}>{w.name}</option>)}
+            {wards.map(w => <option key={w.WardCode} value={w.WardCode}>{w.WardName}</option>)}
           </select>
         </div>
 
@@ -289,6 +337,16 @@ const ShippingAddress = ({
         type="hidden"
         name="shipping_address.address_1"
         value={formData["shipping_address.address_1"]}
+      />
+      <input
+        type="hidden"
+        name="district_id"
+        value={selectedDistrictId}
+      />
+      <input
+        type="hidden"
+        name="ward_code"
+        value={selectedWardCode}
       />
 
       <div className="my-8">

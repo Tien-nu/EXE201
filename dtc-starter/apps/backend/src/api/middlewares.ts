@@ -86,5 +86,151 @@ export default defineMiddlewares({
     body('POST', '/admin/marketplace/sub-orders/:id/cancel', ReasonSchema),
     body('POST', '/admin/marketplace/payouts/:id/paid', PayoutPaidSchema),
     body('POST', '/admin/marketplace/settings', SettingsSchema),
+
+    // ---- Intercept Medusa Core Fulfillment Delivery ----
+    {
+      method: ['POST'],
+      matcher: '/admin/orders/:id/fulfillments/:fulfillment_id/mark-as-delivered',
+      middlewares: [
+        (req: any, res: any, next: any) => {
+          res.on('finish', async () => {
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+              try {
+                // Extract orderId or fulfillmentId from URL safely
+                let orderId = req.params?.id
+                let fulfillmentId = req.params?.fulfillment_id
+
+                const urlMatchOrder = (req.originalUrl || req.url).match(/\/admin\/orders\/([^\/]+)\/fulfillments\/([^\/]+)/)
+                if (urlMatchOrder) {
+                  orderId = urlMatchOrder[1]
+                  fulfillmentId = urlMatchOrder[2]
+                } else {
+                  const urlMatchFulf = (req.originalUrl || req.url).match(/\/admin\/fulfillments\/([^\/]+)/)
+                  if (urlMatchFulf) {
+                    fulfillmentId = urlMatchFulf[1]
+                  }
+                }
+
+                const container = req.scope
+                const logger = container.resolve('logger')
+                const query = container.resolve('query')
+                
+                if (!orderId && fulfillmentId) {
+                  const { data: fulfillments } = await query.graph({
+                    entity: 'fulfillment',
+                    fields: ['order_id'],
+                    filters: { id: fulfillmentId }
+                  })
+                  orderId = fulfillments?.[0]?.order_id
+                }
+
+                if (!orderId) {
+                  return
+                }
+                
+                const { data: mpos } = await query.graph({
+                  entity: 'marketplace_order',
+                  fields: ['id', 'sub_orders.*'],
+                  filters: { order_id: orderId }
+                })
+                
+                const subOrders = mpos?.[0]?.sub_orders || []
+
+                const marketplaceModule = container.resolve('marketplace') as any
+                if (marketplaceModule && subOrders.length > 0) {
+                  const now = new Date()
+                  for (const sub of subOrders) {
+                    if (sub.status !== 'delivered' && sub.status !== 'completed') {
+                      await marketplaceModule.updateSubOrders([{
+                        id: sub.id,
+                        status: 'delivered',
+                        delivered_at: now,
+                        complete_at: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000)
+                      }])
+                      logger.info(`[Middleware] Đồng bộ SubOrder ${sub.id} thành delivered`)
+                    }
+                  }
+                }
+              } catch (e: any) {
+                console.error('Lỗi khi đồng bộ SubOrder trong middleware:', e.message)
+              }
+            }
+          })
+          next()
+        }
+      ]
+    },
+    // ---- Intercept Medusa Core Fulfillment Shipment ----
+    {
+      method: ['POST'],
+      matcher: '/admin/orders/:id/fulfillments/:fulfillment_id/shipments',
+      middlewares: [
+        (req: any, res: any, next: any) => {
+          res.on('finish', async () => {
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+              try {
+                // Extract orderId or fulfillmentId from URL safely
+                let orderId = req.params?.id
+                let fulfillmentId = req.params?.fulfillment_id
+
+                const urlMatchOrder = (req.originalUrl || req.url).match(/\/admin\/orders\/([^\/]+)\/fulfillments\/([^\/]+)/)
+                if (urlMatchOrder) {
+                  orderId = urlMatchOrder[1]
+                  fulfillmentId = urlMatchOrder[2]
+                } else {
+                  const urlMatchFulf = (req.originalUrl || req.url).match(/\/admin\/fulfillments\/([^\/]+)/)
+                  if (urlMatchFulf) {
+                    fulfillmentId = urlMatchFulf[1]
+                  }
+                }
+
+                const container = req.scope
+                const logger = container.resolve('logger')
+                const query = container.resolve('query')
+                
+                if (!orderId && fulfillmentId) {
+                  const { data: fulfillments } = await query.graph({
+                    entity: 'fulfillment',
+                    fields: ['order_id'],
+                    filters: { id: fulfillmentId }
+                  })
+                  orderId = fulfillments?.[0]?.order_id
+                }
+
+                if (!orderId) {
+                  return
+                }
+                
+                const { data: mpos } = await query.graph({
+                  entity: 'marketplace_order',
+                  fields: ['id', 'sub_orders.*'],
+                  filters: { order_id: orderId }
+                })
+                
+                const subOrders = mpos?.[0]?.sub_orders || []
+
+                const marketplaceModule = container.resolve('marketplace') as any
+                if (marketplaceModule && subOrders.length > 0) {
+                  const now = new Date()
+                  for (const sub of subOrders) {
+                    if (sub.status !== 'shipping' && sub.status !== 'delivered' && sub.status !== 'completed') {
+                      await marketplaceModule.updateSubOrders([{
+                        id: sub.id,
+                        status: 'shipping',
+                        shipped_at: now
+                      }])
+                      logger.info(`[Middleware] Đồng bộ SubOrder ${sub.id} thành shipping`)
+                    }
+                  }
+                }
+              } catch (e: any) {
+                console.error('Lỗi khi đồng bộ SubOrder trong middleware:', e.message)
+              }
+            }
+          })
+          next()
+        }
+      ]
+    }
   ],
 })
