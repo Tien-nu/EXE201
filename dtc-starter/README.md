@@ -23,8 +23,11 @@ cd dtc-starter
 pnpm install
 cp apps/backend/.env.template apps/backend/.env            # điền DATABASE_URL
 cp apps/storefront/.env.template apps/storefront/.env.local  # điền NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
-pnpm dev                      # backend :9000 + storefront :8000
+pnpm dev                      # backend :9000 + storefront :8000 (khi đang sửa code)
+pnpm demo                     # storefront chế độ production: bấm chuyển trang nhanh (khi demo/dùng thử)
 ```
+
+`pnpm dev` biên dịch từng trang ở lần mở đầu tiên (có trang mất 5–10 giây) và không tải trước trang khi rê chuột qua link. `pnpm demo` build storefront một lần (khoảng 1 phút) rồi chạy bản production: trang mở trong khoảng 0,1–0,5 giây. Sửa code storefront xong thì phải chạy lại `pnpm demo`.
 
 Database mới (chạy một lần trong `apps/backend`):
 

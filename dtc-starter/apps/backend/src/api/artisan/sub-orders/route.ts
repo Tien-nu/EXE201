@@ -16,13 +16,17 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
   const marketplace: MarketplaceModuleService = req.scope.resolve(MARKETPLACE_MODULE)
   const status = req.query.status as string | undefined
 
-  const subOrders = await marketplace.listSubOrders(
-    { artisan_id: artisan.id, ...(status ? { status: status as any } : {}) },
-    {
-      relations: ["items", "marketplace_order"],
-      order: { created_at: "DESC" },
-    }
-  )
+  // Both lists in parallel: every query is a round trip to the database.
+  const [subOrders, customRequests] = await Promise.all([
+    marketplace.listSubOrders(
+      { artisan_id: artisan.id, ...(status ? { status: status as any } : {}) },
+      {
+        relations: ["items", "marketplace_order"],
+        order: { created_at: "DESC" },
+      }
+    ),
+    marketplace.listCustomRequests({ artisan_id: artisan.id, status: "ordered" }),
+  ])
 
   const visible = subOrders.filter(
     (sub) =>
@@ -30,13 +34,6 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
       // Canceled before payment: the artisan never saw these.
       !(sub.status === "canceled" && !sub.accept_deadline && !sub.accepted_at)
   )
-
-  const customIds = visible
-    .map((sub) => sub.custom_request_id)
-    .filter(Boolean) as string[]
-  const customRequests = customIds.length
-    ? await marketplace.listCustomRequests({ id: customIds })
-    : []
 
   res.json({
     sub_orders: visible.map((sub) =>

@@ -15,7 +15,19 @@ export default function SubOrderNextStep({ subOrder }: { subOrder: ArtisanSubOrd
     case "ready_to_ship":
       return <>Đã báo Yarnly lúc {formatDateTime(subOrder.ready_at)}. Chờ đơn vị vận chuyển tới lấy.</>
     case "shipping":
-      return <>{subOrder.carrier} – {subOrder.tracking_number}</>
+      return (
+        <>
+          {subOrder.carrier} –{" "}
+          {subOrder.tracking_url ? (
+            <a href={subOrder.tracking_url} target="_blank" rel="noreferrer" className="text-violet-700 underline">
+              {subOrder.tracking_number}
+            </a>
+          ) : (
+            subOrder.tracking_number
+          )}
+          {subOrder.carrier_status_label && ` · ${subOrder.carrier_status_label}`}
+        </>
+      )
     case "delivered":
       return <>Đã giao, tự hoàn thành lúc {formatDateTime(subOrder.complete_at)}.</>
     case "completed":

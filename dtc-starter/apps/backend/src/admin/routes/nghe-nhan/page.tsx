@@ -15,6 +15,7 @@ import {
 } from "@medusajs/ui"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
+import { useFormPrompt } from "../../lib/form-prompt"
 import { ARTISAN_STATUS, api, formatDate } from "../../lib/marketplace"
 
 type Artisan = {
@@ -115,16 +116,35 @@ const ArtisanActions = ({ artisan }: { artisan: Artisan }) => {
     onError: (error: Error) => toast.error(error.message),
   })
 
-  const withReason = (status: string, question: string) => {
-    const reason = window.prompt(question)
+  const [dialog, ask] = useFormPrompt()
 
-    if (reason !== null) {
-      setStatus.mutate({ status, reason })
+  const withReason = async (status: "rejected" | "locked") => {
+    const values = await ask(
+      status === "rejected"
+        ? {
+            title: `Từ chối gian hàng "${artisan.shop_name}"?`,
+            description: "Nghệ nhân sẽ nhận email kèm lý do.",
+            fields: [{ name: "reason", label: "Lý do từ chối", multiline: true, required: true }],
+            confirmText: "Từ chối",
+            variant: "danger",
+          }
+        : {
+            title: `Khoá gian hàng "${artisan.shop_name}"?`,
+            description: "Toàn bộ sản phẩm của gian hàng sẽ bị ẩn khỏi sàn cho tới khi mở khoá.",
+            fields: [{ name: "reason", label: "Lý do khoá", multiline: true, required: true }],
+            confirmText: "Khoá gian hàng",
+            variant: "danger",
+          }
+    )
+
+    if (values) {
+      setStatus.mutate({ status, reason: values.reason })
     }
   }
 
   return (
     <div className="flex gap-x-2">
+      {dialog}
       {artisan.status === "pending" && (
         <>
           <Button size="small" onClick={() => setStatus.mutate({ status: "active" })}>
@@ -133,7 +153,7 @@ const ArtisanActions = ({ artisan }: { artisan: Artisan }) => {
           <Button
             size="small"
             variant="secondary"
-            onClick={() => withReason("rejected", "Lý do từ chối?")}
+            onClick={() => withReason("rejected")}
           >
             Từ chối
           </Button>
@@ -143,7 +163,7 @@ const ArtisanActions = ({ artisan }: { artisan: Artisan }) => {
         <Button
           size="small"
           variant="danger"
-          onClick={() => withReason("locked", "Lý do khoá gian hàng?")}
+          onClick={() => withReason("locked")}
         >
           Khoá
         </Button>

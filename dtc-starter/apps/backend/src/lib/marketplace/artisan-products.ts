@@ -33,6 +33,9 @@ export type ArtisanVariantInput = {
   stock?: number | null
 }
 
+// Product and variant details are read as two queries in parallel: one
+// graph through product -> pricing -> inventory costs a database round trip
+// per hop, and the database is far away.
 const PRODUCT_FIELDS = [
   "id",
   "title",
@@ -47,17 +50,19 @@ const PRODUCT_FIELDS = [
   "categories.name",
   "variants.id",
   "variants.title",
-  "variants.allow_backorder",
-  "variants.prices.amount",
-  "variants.prices.currency_code",
-  "variants.inventory_items.inventory_item_id",
-  "variants.inventory_items.inventory.location_levels.location_id",
-  "variants.inventory_items.inventory.location_levels.stocked_quantity",
-  "variants.inventory_items.inventory.location_levels.reserved_quantity",
+]
+
+const VARIANT_FIELDS = [
+  "id",
+  "product_id",
+  "prices.amount",
+  "prices.currency_code",
+  "inventory_items.inventory.location_levels.stocked_quantity",
+  "inventory_items.inventory.location_levels.reserved_quantity",
 ]
 
 /** The shape the artisan portal works with. */
-function toArtisanProduct(product: any) {
+function toArtisanProduct(product: any, variantDetails: Map<string, any>) {
   const metadata = product.metadata ?? {}
 
   return {
@@ -78,7 +83,8 @@ function toArtisanProduct(product: any) {
     hidden_by_lock: metadata.hidden_by_lock === true,
     created_at: product.created_at,
     variants: (product.variants ?? []).map((variant: any) => {
-      const levels = (variant.inventory_items ?? []).flatMap(
+      const details = variantDetails.get(variant.id) ?? {}
+      const levels = (details.inventory_items ?? []).flatMap(
         (item: any) => item.inventory?.location_levels ?? []
       )
 
@@ -86,7 +92,7 @@ function toArtisanProduct(product: any) {
         id: variant.id,
         title: variant.title,
         price: Number(
-          (variant.prices ?? []).find((price: any) => price.currency_code === "vnd")
+          (details.prices ?? []).find((price: any) => price.currency_code === "vnd")
             ?.amount ?? 0
         ),
         stock: levels.reduce(
@@ -102,26 +108,30 @@ function toArtisanProduct(product: any) {
   }
 }
 
+async function readArtisanProducts(container: MedusaContainer, productIds: string[]) {
+  const query = container.resolve(ContainerRegistrationKeys.QUERY)
+  const [{ data: products }, { data: variants }] = await Promise.all([
+    query.graph({ entity: "product", fields: PRODUCT_FIELDS, filters: { id: productIds } }),
+    query.graph({ entity: "variant", fields: VARIANT_FIELDS, filters: { product_id: productIds } }),
+  ])
+  const variantDetails = new Map((variants as any[]).map((variant) => [variant.id, variant]))
+
+  return products.map((product) => toArtisanProduct(product, variantDetails))
+}
+
 export async function listArtisanProducts(
   container: MedusaContainer,
   artisanId: string
 ) {
-  const query = container.resolve(ContainerRegistrationKeys.QUERY)
   const ids = await artisanProductIds(container, artisanId)
 
   if (!ids.length) {
     return []
   }
 
-  const { data } = await query.graph({
-    entity: "product",
-    fields: PRODUCT_FIELDS,
-    filters: { id: ids },
-  })
-
-  return data
-    .map(toArtisanProduct)
-    .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
+  return (await readArtisanProducts(container, ids)).sort(
+    (a, b) => +new Date(b.created_at) - +new Date(a.created_at)
+  )
 }
 
 async function artisanProductIds(container: MedusaContainer, artisanId: string) {
@@ -150,16 +160,9 @@ export async function getArtisanProduct(
     throw new MedusaError(MedusaError.Types.NOT_FOUND, "Không tìm thấy sản phẩm")
   }
 
-  const query = container.resolve(ContainerRegistrationKeys.QUERY)
-  const {
-    data: [product],
-  } = await query.graph({
-    entity: "product",
-    fields: PRODUCT_FIELDS,
-    filters: { id: productId },
-  })
+  const [product] = await readArtisanProducts(container, [productId])
 
-  return toArtisanProduct(product)
+  return product
 }
 
 function assertInput(input: ArtisanProductInput, variants: ArtisanVariantInput[]) {

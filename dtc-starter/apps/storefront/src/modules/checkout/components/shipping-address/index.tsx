@@ -312,6 +312,7 @@ const ShippingAddress = ({
 
         <Input
           label="Số nhà, tên đường (VD: 123 Lê Lợi)"
+          name="street_address"
           value={streetAddress}
           onChange={(e) => setStreetAddress(e.target.value)}
           required

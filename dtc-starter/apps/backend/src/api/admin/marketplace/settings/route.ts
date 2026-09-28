@@ -1,12 +1,16 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import type { SettingsBody } from "../../../marketplace-validators"
+import { isGhnConfigured } from "../../../../lib/marketplace/ghn"
 import { MARKETPLACE_MODULE } from "../../../../modules/marketplace"
 import type MarketplaceModuleService from "../../../../modules/marketplace/service"
 
 export async function GET(req: MedusaRequest, res: MedusaResponse) {
   const marketplace: MarketplaceModuleService = req.scope.resolve(MARKETPLACE_MODULE)
 
-  res.json({ settings: await marketplace.getSettings() })
+  res.json({
+    settings: await marketplace.getSettings(),
+    ghn_enabled: isGhnConfigured(),
+  })
 }
 
 /** Platform fee (0% for now), admin Gmail and Yarnly's receiving account. */

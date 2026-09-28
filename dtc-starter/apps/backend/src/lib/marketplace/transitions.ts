@@ -355,7 +355,13 @@ export async function markReadyToShip(
 export async function shipSubOrder(
   container: MedusaContainer,
   subOrderId: string,
-  shipment: { carrier: string; tracking_number: string }
+  shipment: {
+    carrier: string
+    tracking_number: string
+    shipping_fee?: number | null
+    expected_delivery_at?: Date | null
+    carrier_status?: string | null
+  }
 ) {
   const subOrder = await getFullSubOrder(container, subOrderId)
   assertStatus(subOrder, ["ready_to_ship"], "nghệ nhân chưa báo làm xong")
@@ -365,6 +371,9 @@ export async function shipSubOrder(
     status: "shipping",
     carrier: shipment.carrier,
     tracking_number: shipment.tracking_number,
+    shipping_fee: shipment.shipping_fee ?? null,
+    expected_delivery_at: shipment.expected_delivery_at ?? null,
+    carrier_status: shipment.carrier_status ?? null,
     shipped_at: new Date(),
   })
 

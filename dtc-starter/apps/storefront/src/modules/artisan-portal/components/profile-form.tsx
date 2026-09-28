@@ -6,12 +6,13 @@ import { Button } from "@modules/common/components/ui"
 import { useActionState } from "react"
 import { useFormStatus } from "react-dom"
 import { Field, fieldClass } from "../ui"
+import GhnPickupFields from "./ghn-pickup-fields"
 
 const FIELDS: { name: keyof Artisan; label: string; hint?: string }[] = [
   { name: "shop_name", label: "Tên gian hàng" },
   { name: "full_name", label: "Họ tên" },
   { name: "phone", label: "Số điện thoại" },
-  { name: "pickup_address", label: "Địa chỉ lấy hàng", hint: "Đơn vị vận chuyển tới đây lấy hàng" },
+  { name: "pickup_address", label: "Số nhà, tên đường lấy hàng", hint: "Shipper GHN tới đây lấy hàng" },
   { name: "bank_name", label: "Ngân hàng nhận tiền" },
   { name: "bank_account_number", label: "Số tài khoản" },
   { name: "bank_account_name", label: "Chủ tài khoản" },
@@ -46,6 +47,12 @@ export default function ProfileForm({ artisan }: { artisan: Artisan }) {
           </Field>
         ))}
       </div>
+      <GhnPickupFields value={state?.values ?? artisan} />
+      {!artisan.pickup_ward_code && (
+        <p className="txt-small text-amber-700">
+          Hãy chọn Tỉnh / Quận / Phường lấy hàng để Yarnly đặt được shipper GHN tới lấy hàng.
+        </p>
+      )}
       <Field label="Giới thiệu gian hàng">
         <textarea
           name="description"

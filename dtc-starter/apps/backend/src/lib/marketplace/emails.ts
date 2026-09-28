@@ -37,6 +37,7 @@ export type FullSubOrder = {
   accept_deadline?: Date | string | null
   carrier?: string | null
   tracking_number?: string | null
+  shipping_fee?: unknown
   cancel_reason?: string | null
   refund_status?: string
   shipping_name?: string | null
@@ -249,14 +250,26 @@ export async function emailShipping(
   container: MedusaContainer,
   sub: FullSubOrder
 ) {
+  const tracking =
+    sub.carrier === "GHN" && sub.tracking_number
+      ? ` – <a href="https://donhang.ghn.vn/?order_code=${encodeURIComponent(sub.tracking_number)}">tra cứu</a>`
+      : ""
+  const fee = sub.shipping_fee
+    ? `Phí ship <b>${formatVnd(sub.shipping_fee)}</b> trả cho shipper khi nhận hàng.`
+    : "Phí ship sẽ do đơn vị vận chuyển thu khi giao hàng."
+  const cod =
+    sub.marketplace_order.payment_method === "cod"
+      ? ` Shipper thu thêm tiền hàng <b>${formatVnd(sub.subtotal)}</b> (COD).`
+      : ""
+
   await sendEmail(
     container,
     sub.marketplace_order.email,
     `Đơn ${sub.code} đang được giao`,
     paragraph(
-      `Đơn vị vận chuyển: <b>${escapeHtml(sub.carrier)}</b><br/>Mã vận đơn: <b>${escapeHtml(sub.tracking_number)}</b>`
+      `Đơn vị vận chuyển: <b>${escapeHtml(sub.carrier)}</b><br/>Mã vận đơn: <b>${escapeHtml(sub.tracking_number)}</b>${tracking}`
     ) +
-      paragraph("Phí ship sẽ do đơn vị vận chuyển thu khi giao hàng.") +
+      paragraph(fee + cod) +
       orderLink(sub)
   )
 }

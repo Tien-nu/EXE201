@@ -1,16 +1,17 @@
 "use client"
 
 import { respondCustomRequest } from "@lib/data/artisan-portal"
+import { useFeedback } from "@modules/common/components/feedback"
 import { Button } from "@modules/common/components/ui"
 import { useRouter } from "next/navigation"
-import { useState, useTransition } from "react"
+import { useTransition } from "react"
 import { Field, fieldClass } from "../ui"
 
 /** One answer only: a price per item and the making time, or a refusal. */
 export default function RespondCustomRequest({ requestId }: { requestId: string }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
+  const { confirm, toast } = useFeedback()
 
   const submit = (formData: FormData, accept: boolean) =>
     startTransition(async () => {
@@ -20,7 +21,8 @@ export default function RespondCustomRequest({ requestId }: { requestId: string 
         lead_days: accept ? Number(formData.get("lead_days")) : undefined,
         note: String(formData.get("note") ?? "") || undefined,
       })
-      setError(result.error)
+      if (result.error) toast.error(result.error)
+      else toast.success(accept ? "Đã gửi báo giá cho khách" : "Đã từ chối yêu cầu")
       router.refresh()
     })
 
@@ -43,7 +45,6 @@ export default function RespondCustomRequest({ requestId }: { requestId: string 
       <p className="txt-small text-ui-fg-subtle">
         Bạn chỉ trả lời được một lần. Khách đồng ý thì đơn vào thẳng trạng thái “Đang làm” sau khi thanh toán.
       </p>
-      {error && <p className="txt-small text-red-600">{error}</p>}
       <div className="flex gap-2">
         <Button type="submit" size="small" isLoading={pending}>
           Gửi báo giá
@@ -53,9 +54,15 @@ export default function RespondCustomRequest({ requestId }: { requestId: string 
           size="small"
           variant="secondary"
           disabled={pending}
-          onClick={(event) => {
-            if (!window.confirm("Từ chối yêu cầu này?")) return
-            submit(new FormData(event.currentTarget.form ?? undefined), false)
+          onClick={async (event) => {
+            const form = event.currentTarget.form
+            const ok = await confirm({
+              title: "Từ chối yêu cầu làm riêng này?",
+              description: "Bạn chỉ trả lời được một lần; khách sẽ được báo là bạn từ chối.",
+              confirmText: "Từ chối",
+              tone: "danger",
+            })
+            if (ok) submit(new FormData(form ?? undefined), false)
           }}
         >
           Từ chối

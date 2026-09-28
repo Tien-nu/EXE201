@@ -10,6 +10,12 @@ export const ArtisanProfileSchema = z.object({
   description: z.string().nullish(),
   avatar_url: z.string().nullish(),
   pickup_address: requiredText("Vui lòng nhập địa chỉ lấy hàng"),
+  // GHN administrative units of the pickup address (needed to book GHN).
+  pickup_province_name: z.string().nullish(),
+  pickup_district_id: z.coerce.number().int().positive().nullish(),
+  pickup_district_name: z.string().nullish(),
+  pickup_ward_code: z.string().nullish(),
+  pickup_ward_name: z.string().nullish(),
   bank_name: requiredText("Vui lòng nhập tên ngân hàng"),
   bank_account_number: requiredText("Vui lòng nhập số tài khoản"),
   bank_account_name: requiredText("Vui lòng nhập tên chủ tài khoản"),

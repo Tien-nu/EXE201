@@ -6,63 +6,80 @@ import {
   markSubOrderReady,
 } from "@lib/data/artisan-portal"
 import type { ArtisanSubOrder } from "@lib/marketplace-types"
+import { useFeedback } from "@modules/common/components/feedback"
 import { Button } from "@modules/common/components/ui"
 import { useRouter } from "next/navigation"
-import { useState, useTransition } from "react"
+import { useTransition } from "react"
 
 /** The only buttons an artisan has: accept / decline within 12h, then "done". */
 export default function SubOrderActions({ subOrder }: { subOrder: ArtisanSubOrder }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
+  const { ask, confirm, toast } = useFeedback()
 
-  const run = (action: () => Promise<{ error: string | null }>) =>
+  const run = (action: () => Promise<{ error: string | null }>, success: string) =>
     startTransition(async () => {
       const result = await action()
-      setError(result.error)
+      if (result.error) toast.error(result.error)
+      else toast.success(success)
       router.refresh()
     })
 
   if (subOrder.status === "pending_acceptance") {
     return (
-      <div className="flex flex-col gap-2">
-        <div className="flex gap-2">
-          <Button isLoading={pending} onClick={() => run(() => acceptSubOrder(subOrder.id))}>
-            Nhận đơn
-          </Button>
-          <Button
-            variant="secondary"
-            disabled={pending}
-            onClick={() => {
-              const reason = window.prompt("Lý do từ chối đơn (khách sẽ thấy lý do này):")
-              if (reason?.trim()) {
-                run(() => declineSubOrder(subOrder.id, reason.trim()))
-              }
-            }}
-          >
-            Từ chối
-          </Button>
-        </div>
-        {error && <p className="txt-small text-red-600">{error}</p>}
+      <div className="flex gap-2">
+        <Button
+          isLoading={pending}
+          onClick={() => run(() => acceptSubOrder(subOrder.id), `Đã nhận đơn ${subOrder.code}`)}
+        >
+          Nhận đơn
+        </Button>
+        <Button
+          variant="secondary"
+          disabled={pending}
+          onClick={async () => {
+            const reason = await ask({
+              title: `Từ chối đơn ${subOrder.code}?`,
+              description: "Khách sẽ thấy lý do này. Nếu khách đã chuyển khoản, Yarnly sẽ hoàn tiền.",
+              label: "Lý do từ chối",
+              placeholder: "VD: Hết len màu khách chọn",
+              multiline: true,
+              required: true,
+              confirmText: "Từ chối đơn",
+              tone: "danger",
+            })
+            if (reason) {
+              run(() => declineSubOrder(subOrder.id, reason), `Đã từ chối đơn ${subOrder.code}`)
+            }
+          }}
+        >
+          Từ chối
+        </Button>
       </div>
     )
   }
 
   if (subOrder.status === "processing") {
     return (
-      <div className="flex flex-col gap-2">
-        <Button
-          isLoading={pending}
-          onClick={() => {
-            if (window.confirm("Xác nhận đã làm xong và đóng gói? Yarnly sẽ tạo đơn vận chuyển tới lấy hàng.")) {
-              run(() => markSubOrderReady(subOrder.id))
-            }
-          }}
-        >
-          Đã làm xong – chờ giao hàng
-        </Button>
-        {error && <p className="txt-small text-red-600">{error}</p>}
-      </div>
+      <Button
+        isLoading={pending}
+        onClick={async () => {
+          const ok = await confirm({
+            title: "Đã làm xong và đóng gói?",
+            description: "Yarnly sẽ tạo đơn vận chuyển và shipper sẽ tới địa chỉ lấy hàng của bạn.",
+            confirmText: "Đã làm xong",
+            cancelText: "Chưa",
+          })
+          if (ok) {
+            run(
+              () => markSubOrderReady(subOrder.id),
+              "Đã báo Yarnly – shipper sẽ tới lấy hàng"
+            )
+          }
+        }}
+      >
+        Đã làm xong – chờ giao hàng
+      </Button>
     )
   }
 

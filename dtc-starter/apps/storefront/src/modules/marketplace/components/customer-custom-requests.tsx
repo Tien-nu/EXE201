@@ -9,26 +9,42 @@ import { formatDateTime, formatVnd } from "@lib/util/vn-format"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { Button } from "@modules/common/components/ui"
 import { useParams, useRouter } from "next/navigation"
-import { useState, useTransition } from "react"
+import { useFeedback } from "@modules/common/components/feedback"
+import { useTransition } from "react"
 
 const RequestCard = ({ request }: { request: CustomRequest }) => {
   const router = useRouter()
   const { countryCode } = useParams() as { countryCode: string }
   const [pending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
+  const { confirm, toast } = useFeedback()
 
   const decide = (accept: boolean) =>
     startTransition(async () => {
       const result = await decideCustomRequest(request.id, accept, countryCode)
-      setError(result.error)
 
-      if (!result.error && accept) {
+      if (result.error) {
+        toast.error(result.error)
+      } else if (accept) {
+        toast.success(`Đã thêm "${request.product_title}" vào giỏ với giá nghệ nhân báo`)
         router.push(`/${countryCode}/cart`)
         return
+      } else {
+        toast.info("Bạn đã từ chối báo giá")
       }
 
       router.refresh()
     })
+
+  const decline = async () => {
+    const ok = await confirm({
+      title: "Từ chối báo giá này?",
+      description: "Bạn chỉ được quyết định một lần. Sau khi từ chối, yêu cầu này sẽ kết thúc.",
+      confirmText: "Từ chối",
+      cancelText: "Suy nghĩ thêm",
+      tone: "danger",
+    })
+    if (ok) decide(false)
+  }
 
   return (
     <div className="rounded-md border border-gray-200 p-4">
@@ -70,7 +86,7 @@ const RequestCard = ({ request }: { request: CustomRequest }) => {
             size="small"
             variant="secondary"
             disabled={pending}
-            onClick={() => window.confirm("Từ chối báo giá này? Bạn chỉ được quyết định một lần.") && decide(false)}
+            onClick={decline}
           >
             Từ chối
           </Button>
@@ -94,7 +110,6 @@ const RequestCard = ({ request }: { request: CustomRequest }) => {
           Xem đơn hàng
         </LocalizedClientLink>
       )}
-      {error && <p className="mt-2 txt-small text-red-600">{error}</p>}
     </div>
   )
 }

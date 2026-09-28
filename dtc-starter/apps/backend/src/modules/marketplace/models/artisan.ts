@@ -14,8 +14,13 @@ const Artisan = model.define("artisan", {
   phone: model.text(),
   description: model.text().nullable(),
   avatar_url: model.text().nullable(),
-  // Where the carrier picks the parcels up.
+  // Where the carrier picks the parcels up: street + GHN administrative units.
   pickup_address: model.text(),
+  pickup_province_name: model.text().nullable(),
+  pickup_district_id: model.number().nullable(),
+  pickup_district_name: model.text().nullable(),
+  pickup_ward_code: model.text().nullable(),
+  pickup_ward_name: model.text().nullable(),
   bank_name: model.text(),
   bank_account_number: model.text(),
   bank_account_name: model.text(),

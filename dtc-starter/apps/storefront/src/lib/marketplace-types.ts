@@ -46,6 +46,11 @@ type SubOrderBase = {
   subtotal: number
   carrier: string | null
   tracking_number: string | null
+  tracking_url: string | null
+  carrier_status: string | null
+  carrier_status_label: string | null
+  shipping_fee: number | null
+  expected_delivery_at: string | null
   canceled_by: string | null
   cancel_reason: string | null
   items: SubOrderItem[]
@@ -142,6 +147,11 @@ export type Artisan = PublicArtisan & {
   email: string
   phone: string
   pickup_address: string
+  pickup_province_name: string | null
+  pickup_district_id: number | null
+  pickup_district_name: string | null
+  pickup_ward_code: string | null
+  pickup_ward_name: string | null
   bank_name: string
   bank_account_number: string
   bank_account_name: string

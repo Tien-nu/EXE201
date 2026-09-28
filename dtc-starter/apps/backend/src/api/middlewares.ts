@@ -3,7 +3,12 @@ import {
   configureStoreSearch,
   defineMiddlewares,
   validateAndTransformBody,
+  type MedusaNextFunction,
+  type MedusaRequest,
+  type MedusaResponse,
 } from '@medusajs/framework/http'
+import { MARKETPLACE_MODULE } from '../modules/marketplace'
+import type MarketplaceModuleService from '../modules/marketplace/service'
 import {
   AdminCreateArtisanSchema,
   ArtisanProfileSchema,
@@ -27,6 +32,25 @@ const body = (method: 'POST', matcher: string, schema: Parameters<typeof validat
   matcher,
   middlewares: [validateAndTransformBody(schema)],
 })
+
+async function blockNativeFulfillment(
+  req: MedusaRequest,
+  res: MedusaResponse,
+  next: MedusaNextFunction
+) {
+  const marketplace: MarketplaceModuleService = req.scope.resolve(MARKETPLACE_MODULE)
+  const [order] = await marketplace.listMarketplaceOrders({ order_id: req.params.id })
+
+  if (!order) {
+    return next()
+  }
+
+  res.status(400).json({
+    type: 'not_allowed',
+    message:
+      'Đơn của sàn được giao riêng theo từng nghệ nhân. Hãy tạo vận đơn ở Admin → Đơn sàn → "Chờ giao hàng" (sau khi nghệ nhân báo làm xong).',
+  })
+}
 
 // The product index declares filterable `status` and `sales_channel_ids`, so
 // the route narrows it to published products in the key's sales channels.
@@ -87,150 +111,12 @@ export default defineMiddlewares({
     body('POST', '/admin/marketplace/payouts/:id/paid', PayoutPaidSchema),
     body('POST', '/admin/marketplace/settings', SettingsSchema),
 
-    // ---- Intercept Medusa Core Fulfillment Delivery ----
+    // Marketplace orders ship per artisan from Admin → Đơn sàn; Medusa's own
+    // Create Fulfillment would ship every artisan's items as one parcel.
     {
       method: ['POST'],
-      matcher: '/admin/orders/:id/fulfillments/:fulfillment_id/mark-as-delivered',
-      middlewares: [
-        (req: any, res: any, next: any) => {
-          res.on('finish', async () => {
-            if (res.statusCode >= 200 && res.statusCode < 300) {
-              try {
-                // Extract orderId or fulfillmentId from URL safely
-                let orderId = req.params?.id
-                let fulfillmentId = req.params?.fulfillment_id
-
-                const urlMatchOrder = (req.originalUrl || req.url).match(/\/admin\/orders\/([^\/]+)\/fulfillments\/([^\/]+)/)
-                if (urlMatchOrder) {
-                  orderId = urlMatchOrder[1]
-                  fulfillmentId = urlMatchOrder[2]
-                } else {
-                  const urlMatchFulf = (req.originalUrl || req.url).match(/\/admin\/fulfillments\/([^\/]+)/)
-                  if (urlMatchFulf) {
-                    fulfillmentId = urlMatchFulf[1]
-                  }
-                }
-
-                const container = req.scope
-                const logger = container.resolve('logger')
-                const query = container.resolve('query')
-                
-                if (!orderId && fulfillmentId) {
-                  const { data: fulfillments } = await query.graph({
-                    entity: 'fulfillment',
-                    fields: ['order_id'],
-                    filters: { id: fulfillmentId }
-                  })
-                  orderId = fulfillments?.[0]?.order_id
-                }
-
-                if (!orderId) {
-                  return
-                }
-                
-                const { data: mpos } = await query.graph({
-                  entity: 'marketplace_order',
-                  fields: ['id', 'sub_orders.*'],
-                  filters: { order_id: orderId }
-                })
-                
-                const subOrders = mpos?.[0]?.sub_orders || []
-
-                const marketplaceModule = container.resolve('marketplace') as any
-                if (marketplaceModule && subOrders.length > 0) {
-                  const now = new Date()
-                  for (const sub of subOrders) {
-                    if (sub.status !== 'delivered' && sub.status !== 'completed') {
-                      await marketplaceModule.updateSubOrders([{
-                        id: sub.id,
-                        status: 'delivered',
-                        delivered_at: now,
-                        complete_at: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000)
-                      }])
-                      logger.info(`[Middleware] Đồng bộ SubOrder ${sub.id} thành delivered`)
-                    }
-                  }
-                }
-              } catch (e: any) {
-                console.error('Lỗi khi đồng bộ SubOrder trong middleware:', e.message)
-              }
-            }
-          })
-          next()
-        }
-      ]
+      matcher: '/admin/orders/:id/fulfillments',
+      middlewares: [blockNativeFulfillment],
     },
-    // ---- Intercept Medusa Core Fulfillment Shipment ----
-    {
-      method: ['POST'],
-      matcher: '/admin/orders/:id/fulfillments/:fulfillment_id/shipments',
-      middlewares: [
-        (req: any, res: any, next: any) => {
-          res.on('finish', async () => {
-            if (res.statusCode >= 200 && res.statusCode < 300) {
-              try {
-                // Extract orderId or fulfillmentId from URL safely
-                let orderId = req.params?.id
-                let fulfillmentId = req.params?.fulfillment_id
-
-                const urlMatchOrder = (req.originalUrl || req.url).match(/\/admin\/orders\/([^\/]+)\/fulfillments\/([^\/]+)/)
-                if (urlMatchOrder) {
-                  orderId = urlMatchOrder[1]
-                  fulfillmentId = urlMatchOrder[2]
-                } else {
-                  const urlMatchFulf = (req.originalUrl || req.url).match(/\/admin\/fulfillments\/([^\/]+)/)
-                  if (urlMatchFulf) {
-                    fulfillmentId = urlMatchFulf[1]
-                  }
-                }
-
-                const container = req.scope
-                const logger = container.resolve('logger')
-                const query = container.resolve('query')
-                
-                if (!orderId && fulfillmentId) {
-                  const { data: fulfillments } = await query.graph({
-                    entity: 'fulfillment',
-                    fields: ['order_id'],
-                    filters: { id: fulfillmentId }
-                  })
-                  orderId = fulfillments?.[0]?.order_id
-                }
-
-                if (!orderId) {
-                  return
-                }
-                
-                const { data: mpos } = await query.graph({
-                  entity: 'marketplace_order',
-                  fields: ['id', 'sub_orders.*'],
-                  filters: { order_id: orderId }
-                })
-                
-                const subOrders = mpos?.[0]?.sub_orders || []
-
-                const marketplaceModule = container.resolve('marketplace') as any
-                if (marketplaceModule && subOrders.length > 0) {
-                  const now = new Date()
-                  for (const sub of subOrders) {
-                    if (sub.status !== 'shipping' && sub.status !== 'delivered' && sub.status !== 'completed') {
-                      await marketplaceModule.updateSubOrders([{
-                        id: sub.id,
-                        status: 'shipping',
-                        shipped_at: now
-                      }])
-                      logger.info(`[Middleware] Đồng bộ SubOrder ${sub.id} thành shipping`)
-                    }
-                  }
-                }
-              } catch (e: any) {
-                console.error('Lỗi khi đồng bộ SubOrder trong middleware:', e.message)
-              }
-            }
-          })
-          next()
-        }
-      ]
-    }
   ],
 })

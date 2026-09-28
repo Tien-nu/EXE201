@@ -13,6 +13,7 @@ import {
 } from "@medusajs/ui"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
+import { useFormPrompt } from "../../lib/form-prompt"
 import { api, formatDate, formatVnd } from "../../lib/marketplace"
 
 type Payout = {
@@ -62,8 +63,11 @@ const PayoutsSection = () => {
     onError: (error: Error) => toast.error(error.message),
   })
 
+  const [dialog, ask] = useFormPrompt()
+
   return (
     <Container className="p-0">
+      {dialog}
       <div className="flex items-center justify-between px-6 py-4">
         <div>
           <Heading>Chuyển tiền cho nghệ nhân</Heading>
@@ -133,10 +137,17 @@ const PayoutsSection = () => {
                   ) : (
                     <Button
                       size="small"
-                      onClick={() => {
-                        const ref = window.prompt("Mã giao dịch chuyển khoản:")
-                        if (ref) {
-                          markPaid.mutate({ id: payout.id, transaction_ref: ref })
+                      onClick={async () => {
+                        const values = await ask({
+                          title: `Đã chuyển ${formatVnd(payout.net_amount)} cho ${payout.artisan.shop_name}?`,
+                          description: `Tài khoản nhận: ${payout.bank_name} ${payout.bank_account_number} – ${payout.bank_account_name}. Nghệ nhân sẽ nhận email kèm mã giao dịch.`,
+                          fields: [
+                            { name: "ref", label: "Mã giao dịch ngân hàng", placeholder: "VD: FT26271234567", required: true },
+                          ],
+                          confirmText: "Đánh dấu đã chuyển",
+                        })
+                        if (values) {
+                          markPaid.mutate({ id: payout.id, transaction_ref: values.ref })
                         }
                       }}
                     >

@@ -5,6 +5,7 @@ import type { MarketplaceOrder } from "@lib/marketplace-types"
 import { formatDateTime, formatVnd } from "@lib/util/vn-format"
 import { Button } from "@modules/common/components/ui"
 import { useRouter } from "next/navigation"
+import { useFeedback } from "@modules/common/components/feedback"
 import { useEffect, useState, useTransition } from "react"
 
 const useSecondsLeft = (deadline: string | null) => {
@@ -36,7 +37,7 @@ const Notice = ({ tone, children }: { tone: "info" | "success" | "danger"; child
 export default function BankTransferBox({ order }: { order: MarketplaceOrder }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
+  const { toast } = useFeedback()
   const secondsLeft = useSecondsLeft(order.payment_deadline)
 
   if (order.payment_method !== "bank_transfer") {
@@ -120,14 +121,14 @@ export default function BankTransferBox({ order }: { order: MarketplaceOrder }) 
         onClick={() =>
           startTransition(async () => {
             const result = await submitTransfer(order.order_id)
-            setError(result.error)
+            if (result.error) toast.error(result.error)
+            else toast.success("Đã báo chuyển khoản – Yarnly sẽ kiểm tra và xác nhận qua email")
             router.refresh()
           })
         }
       >
         Tôi đã chuyển khoản
       </Button>
-      {error && <p className="txt-small text-red-600">{error}</p>}
       <p className="txt-small text-ui-fg-subtle">
         Phí ship trả cho đơn vị vận chuyển khi nhận hàng.
       </p>

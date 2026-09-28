@@ -1,4 +1,5 @@
 import { SUB_ORDER_STATUS_LABELS } from "./constants"
+import { GHN_STATUS_LABELS, ghnTrackingUrl } from "./ghn"
 import { toNumber } from "./numbers"
 
 const itemFields = (item: any) => ({
@@ -38,6 +39,14 @@ const common = (sub: any) => ({
   subtotal: toNumber(sub.subtotal),
   carrier: sub.carrier,
   tracking_number: sub.tracking_number,
+  tracking_url:
+    sub.carrier === "GHN" && sub.tracking_number ? ghnTrackingUrl(sub.tracking_number) : null,
+  carrier_status: sub.carrier_status ?? null,
+  carrier_status_label: sub.carrier_status
+    ? GHN_STATUS_LABELS[sub.carrier_status] ?? sub.carrier_status
+    : null,
+  shipping_fee: sub.shipping_fee === null || sub.shipping_fee === undefined ? null : toNumber(sub.shipping_fee),
+  expected_delivery_at: sub.expected_delivery_at ?? null,
   canceled_by: sub.canceled_by,
   cancel_reason: sub.cancel_reason,
   items: (sub.items ?? []).map(itemFields),

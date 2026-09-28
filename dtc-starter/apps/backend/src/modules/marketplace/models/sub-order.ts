@@ -39,6 +39,11 @@ const SubOrder = model.define("sub_order", {
   ready_at: model.dateTime().nullable(),
   carrier: model.text().nullable(),
   tracking_number: model.text().nullable(),
+  // What the carrier charges the customer on delivery, when known (GHN).
+  shipping_fee: model.bigNumber().nullable(),
+  expected_delivery_at: model.dateTime().nullable(),
+  // Last status reported by the carrier's webhook, e.g. "delivering".
+  carrier_status: model.text().nullable(),
   shipped_at: model.dateTime().nullable(),
   delivered_at: model.dateTime().nullable(),
   // When the order completes by itself, 2 days after delivery.

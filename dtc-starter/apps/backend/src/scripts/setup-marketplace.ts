@@ -133,17 +133,23 @@ export default async function setupMarketplace({ container }: ExecArgs) {
   // ---- Shipping: one free option, the carrier collects on delivery ---------
   const { data: shippingOptions } = await query.graph({
     entity: "shipping_option",
-    fields: ["id", "name"],
+    fields: ["id", "name", "provider_id"],
   })
 
-  const [keep, ...rest] = shippingOptions
+  // Prefer the GHN option when the team configured one.
+  const ordered = [...shippingOptions].sort(
+    (a: any, b: any) => Number(b.provider_id?.includes("ghn")) - Number(a.provider_id?.includes("ghn"))
+  )
+  const [keep, ...rest] = ordered
 
   if (keep) {
     await updateShippingOptionsWorkflow(container).run({
       input: [
         {
           id: keep.id,
-          name: "Giao hàng tiêu chuẩn (phí ship trả khi nhận hàng)",
+          name: (keep as any).provider_id?.includes("ghn")
+            ? "Giao Hàng Nhanh (GHN) – phí ship trả khi nhận hàng"
+            : "Giao hàng tiêu chuẩn (phí ship trả khi nhận hàng)",
           prices: [{ currency_code: "vnd", amount: 0 }],
         },
       ],

@@ -63,6 +63,27 @@ export const PAYMENT_STATUS: Record<
   rejected: { label: "Không nhận được tiền", color: "red" },
 }
 
+/** Latest status reported by GHN's webhook. */
+export const GHN_STATUS: Record<string, string> = {
+  ready_to_pick: "Chờ lấy hàng",
+  picking: "Đang lấy hàng",
+  picked: "Đã lấy hàng",
+  storing: "Đang lưu kho",
+  transporting: "Đang luân chuyển",
+  sorting: "Đang phân loại",
+  delivering: "Đang giao",
+  delivered: "Đã giao",
+  delivery_fail: "Giao thất bại",
+  waiting_to_return: "Chờ trả hàng",
+  return: "Đang trả hàng",
+  returning: "Đang trả hàng",
+  returned: "Đã trả hàng",
+  cancel: "Vận đơn đã huỷ",
+  exception: "Có sự cố",
+  damage: "Hư hỏng",
+  lost: "Thất lạc",
+}
+
 export const ARTISAN_STATUS: Record<
   string,
   { label: string; color: "grey" | "orange" | "blue" | "green" | "red" | "purple" }

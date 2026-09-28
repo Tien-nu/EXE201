@@ -10,6 +10,7 @@ import type {
   Payout,
 } from "@lib/marketplace-types"
 import { cookies as nextCookies } from "next/headers"
+import { revalidateTag } from "next/cache"
 import { redirect } from "next/navigation"
 
 const TOKEN_COOKIE = "_yarnly_artisan_jwt"
@@ -41,16 +42,26 @@ async function authHeaders(): Promise<Record<string, string>> {
   return token ? { authorization: `Bearer ${token}` } : {}
 }
 
-/** Calls the artisan API with the artisan's token; never cached. */
+// Product data only changes through this portal (or an admin locking the
+// shop), so it is cached per artisan (the token is part of the cache key)
+// and dropped as soon as the artisan saves, deletes or adds a product.
+const PRODUCTS_TAG = "artisan-products"
+const productsCache = { next: { tags: [PRODUCTS_TAG], revalidate: 60 } }
+
+/** Calls the artisan API with the artisan's token; uncached unless `cached`. */
 async function artisanFetch<T>(
   path: string,
-  init: { method?: "GET" | "POST" | "DELETE"; body?: unknown } = {}
+  init: {
+    method?: "GET" | "POST" | "DELETE"
+    body?: unknown
+    cached?: { next: { tags?: string[]; revalidate: number } }
+  } = {}
 ): Promise<T> {
   return sdk.client.fetch<T>(`/artisan${path}`, {
     method: init.method ?? "GET",
     headers: await authHeaders(),
     body: init.body as Record<string, unknown> | undefined,
-    cache: "no-store",
+    ...(init.cached ?? { cache: "no-store" as const }),
   })
 }
 
@@ -92,14 +103,22 @@ const PROFILE_FIELDS = [
   "phone",
   "description",
   "pickup_address",
+  "pickup_province_name",
+  "pickup_district_id",
+  "pickup_district_name",
+  "pickup_ward_code",
+  "pickup_ward_name",
   "bank_name",
   "bank_account_number",
   "bank_account_name",
 ] as const
 
+// Empty optional fields are dropped so the API keeps its "not set" meaning.
 const readProfile = (formData: FormData) =>
   Object.fromEntries(
-    PROFILE_FIELDS.map((field) => [field, String(formData.get(field) ?? "").trim()])
+    PROFILE_FIELDS.map((field) => [field, String(formData.get(field) ?? "").trim()]).filter(
+      ([field, value]) => value !== "" || !String(field).startsWith("pickup_") || field === "pickup_address"
+    )
   )
 
 export async function artisanRegister(
@@ -188,19 +207,21 @@ export async function getArtisanDashboard() {
 }
 
 export async function listArtisanProducts() {
-  return artisanFetch<{ products: ArtisanProduct[] }>("/products")
+  return artisanFetch<{ products: ArtisanProduct[] }>("/products", { cached: productsCache })
     .then(({ products }) => products)
     .catch(() => [] as ArtisanProduct[])
 }
 
 export async function getArtisanProduct(id: string) {
-  return artisanFetch<{ product: ArtisanProduct }>(`/products/${id}`)
+  return artisanFetch<{ product: ArtisanProduct }>(`/products/${id}`, { cached: productsCache })
     .then(({ product }) => product)
     .catch(() => null)
 }
 
 export async function listArtisanCategories() {
-  return artisanFetch<{ categories: { id: string; name: string }[] }>("/categories")
+  return artisanFetch<{ categories: { id: string; name: string }[] }>("/categories", {
+    cached: { next: { revalidate: 3600 } },
+  })
     .then(({ categories }) => categories)
     .catch(() => [])
 }
@@ -266,6 +287,7 @@ export async function saveArtisanProduct(
       id ? `/products/${id}` : "/products",
       { method: "POST", body: payload }
     )
+    revalidateTag(PRODUCTS_TAG)
     return { error: null, id: product.id }
   } catch (error) {
     return { error: toError(error) }
@@ -273,7 +295,9 @@ export async function saveArtisanProduct(
 }
 
 export async function deleteArtisanProduct(id: string) {
-  return run(() => artisanFetch(`/products/${id}`, { method: "DELETE" }))
+  const result = await run(() => artisanFetch(`/products/${id}`, { method: "DELETE" }))
+  revalidateTag(PRODUCTS_TAG)
+  return result
 }
 
 /** Product photos go through here so the browser never holds the token. */

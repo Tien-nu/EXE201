@@ -167,6 +167,7 @@ const BillingAddress = ({ cart }: { cart: HttpTypes.StoreCart | null }) => {
 
         <Input
           label="Số nhà, tên đường (VD: 123 Lê Lợi)"
+          name="billing_street_address"
           value={streetAddress}
           onChange={(e) => setStreetAddress(e.target.value)}
           required

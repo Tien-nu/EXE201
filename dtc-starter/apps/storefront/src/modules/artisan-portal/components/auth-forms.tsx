@@ -7,6 +7,7 @@ import { useParams } from "next/navigation"
 import { useActionState } from "react"
 import { useFormStatus } from "react-dom"
 import { Field, fieldClass } from "../ui"
+import GhnPickupFields from "./ghn-pickup-fields"
 
 const Submit = ({ children }: { children: React.ReactNode }) => {
   const { pending } = useFormStatus()
@@ -69,8 +70,8 @@ const REGISTER_FIELDS: {
   { name: "phone", label: "Số điện thoại", required: true },
   {
     name: "pickup_address",
-    label: "Địa chỉ lấy hàng",
-    hint: "Đơn vị vận chuyển sẽ tới đây lấy hàng",
+    label: "Số nhà, tên đường lấy hàng",
+    hint: "Shipper GHN sẽ tới đây lấy hàng",
     required: true,
   },
   { name: "bank_name", label: "Ngân hàng nhận tiền", required: true },
@@ -98,6 +99,7 @@ export const ArtisanRegisterForm = () => {
           </Field>
         ))}
       </div>
+      <GhnPickupFields value={state?.values} />
       <Field label="Giới thiệu gian hàng (tuỳ chọn)">
         <textarea
           name="description"

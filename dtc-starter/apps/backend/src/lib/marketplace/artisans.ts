@@ -23,6 +23,11 @@ export type ArtisanProfileInput = {
   description?: string | null
   avatar_url?: string | null
   pickup_address: string
+  pickup_province_name?: string | null
+  pickup_district_id?: number | null
+  pickup_district_name?: string | null
+  pickup_ward_code?: string | null
+  pickup_ward_name?: string | null
   bank_name: string
   bank_account_number: string
   bank_account_name: string

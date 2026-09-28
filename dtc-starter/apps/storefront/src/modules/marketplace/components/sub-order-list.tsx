@@ -11,7 +11,8 @@ import {
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { Button } from "@modules/common/components/ui"
 import { useRouter } from "next/navigation"
-import { useState, useTransition } from "react"
+import { useFeedback } from "@modules/common/components/feedback"
+import { useTransition } from "react"
 
 const Hint = ({ subOrder }: { subOrder: CustomerSubOrder }) => {
   switch (subOrder.status) {
@@ -30,7 +31,20 @@ const Hint = ({ subOrder }: { subOrder: CustomerSubOrder }) => {
     case "shipping":
       return (
         <>
-          {subOrder.carrier} – mã vận đơn <strong>{subOrder.tracking_number}</strong>. Phí ship trả khi nhận.
+          {subOrder.carrier} – mã vận đơn{" "}
+          {subOrder.tracking_url ? (
+            <a href={subOrder.tracking_url} target="_blank" rel="noreferrer" className="font-semibold text-violet-700 underline">
+              {subOrder.tracking_number}
+            </a>
+          ) : (
+            <strong>{subOrder.tracking_number}</strong>
+          )}
+          {subOrder.carrier_status_label && ` · ${subOrder.carrier_status_label}`}
+          {subOrder.expected_delivery_at && ` · dự kiến giao ${formatDate(subOrder.expected_delivery_at)}`}
+          {". "}
+          {subOrder.shipping_fee
+            ? `Phí ship ${formatVnd(subOrder.shipping_fee)} trả cho shipper khi nhận.`
+            : "Phí ship trả khi nhận."}
         </>
       )
     case "delivered":
@@ -53,7 +67,7 @@ const Hint = ({ subOrder }: { subOrder: CustomerSubOrder }) => {
 const SubOrderCard = ({ subOrder }: { subOrder: CustomerSubOrder }) => {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
+  const { confirm, toast } = useFeedback()
   const canCancel = ["pending_payment", "pending_acceptance"].includes(subOrder.status)
 
   return (
@@ -106,18 +120,27 @@ const SubOrderCard = ({ subOrder }: { subOrder: CustomerSubOrder }) => {
             variant="secondary"
             size="small"
             isLoading={pending}
-            onClick={() => {
-              if (!window.confirm(`Huỷ đơn ${subOrder.code}?`)) return
+            onClick={async () => {
+              const ok = await confirm({
+                title: `Huỷ đơn ${subOrder.code}?`,
+                description: subOrder.artisan
+                  ? `Phần hàng của ${subOrder.artisan.shop_name} sẽ bị huỷ. Các phần khác của đơn vẫn giữ nguyên.`
+                  : undefined,
+                confirmText: "Huỷ đơn",
+                cancelText: "Giữ lại",
+                tone: "danger",
+              })
+              if (!ok) return
               startTransition(async () => {
                 const result = await cancelSubOrder(subOrder.id)
-                setError(result.error)
+                if (result.error) toast.error(result.error)
+                else toast.success(`Đã huỷ đơn ${subOrder.code}`)
                 router.refresh()
               })
             }}
           >
             Huỷ đơn này
           </Button>
-          {error && <p className="mt-1 txt-small text-red-600">{error}</p>}
         </div>
       )}
     </div>

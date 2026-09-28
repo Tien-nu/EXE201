@@ -6,6 +6,7 @@ import {
   uploadArtisanImages,
 } from "@lib/data/artisan-portal"
 import type { ArtisanProduct } from "@lib/marketplace-types"
+import { useFeedback } from "@modules/common/components/feedback"
 import { Button } from "@modules/common/components/ui"
 import { useParams, useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
@@ -22,8 +23,7 @@ export default function ProductForm({ product, categories }: Props) {
   const { countryCode } = useParams() as { countryCode: string }
   const [pending, startTransition] = useTransition()
   const [uploading, setUploading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
+  const { confirm, toast } = useFeedback()
 
   const [title, setTitle] = useState(product?.title ?? "")
   const [description, setDescription] = useState(product?.description ?? "")
@@ -53,13 +53,13 @@ export default function ProductForm({ product, categories }: Props) {
     Array.from(files).forEach((file) => formData.append("files", file))
     const result = await uploadArtisanImages(formData)
     setUploading(false)
-    setError(result.error)
+    if (result.error) toast.error(result.error)
+    else toast.success(`Đã tải lên ${result.urls.length} ảnh – nhớ bấm Lưu`)
     setImages((previous) => [...previous, ...result.urls])
   }
 
   const save = () =>
     startTransition(async () => {
-      setSaved(false)
       const result = await saveArtisanProduct(product?.id ?? null, {
         title,
         description,
@@ -82,10 +82,10 @@ export default function ProductForm({ product, categories }: Props) {
             }),
       })
 
-      setError(result.error)
-
-      if (!result.error) {
-        setSaved(true)
+      if (result.error) {
+        toast.error(result.error)
+      } else {
+        toast.success(product ? "Đã lưu thay đổi" : "Đã đăng sản phẩm")
         if (!product && result.id) {
           router.push(`/${countryCode}/kenh-nghe-nhan/san-pham/${result.id}`)
         } else {
@@ -280,9 +280,6 @@ export default function ProductForm({ product, categories }: Props) {
         Hiển thị trên sàn
       </label>
 
-      {error && <p className="txt-small text-red-600">{error}</p>}
-      {saved && <p className="txt-small text-emerald-700">Đã lưu.</p>}
-
       <div className="flex gap-2">
         <Button onClick={save} isLoading={pending} disabled={uploading}>
           {product ? "Lưu thay đổi" : "Đăng sản phẩm"}
@@ -291,14 +288,21 @@ export default function ProductForm({ product, categories }: Props) {
           <Button
             variant="secondary"
             disabled={pending}
-            onClick={() => {
-              if (!window.confirm("Xoá sản phẩm này khỏi gian hàng?")) return
+            onClick={async () => {
+              const ok = await confirm({
+                title: "Xoá sản phẩm này?",
+                description: `"${product.title}" sẽ biến mất khỏi gian hàng và không khôi phục được. Muốn tạm ẩn thì bỏ chọn "Hiển thị trên sàn".`,
+                confirmText: "Xoá sản phẩm",
+                tone: "danger",
+              })
+              if (!ok) return
               startTransition(async () => {
                 const result = await deleteArtisanProduct(product.id)
                 if (result.error) {
-                  setError(result.error)
+                  toast.error(result.error)
                   return
                 }
+                toast.success("Đã xoá sản phẩm")
                 router.push(`/${countryCode}/kenh-nghe-nhan/san-pham`)
               })
             }}
