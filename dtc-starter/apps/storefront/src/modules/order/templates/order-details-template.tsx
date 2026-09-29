@@ -12,10 +12,13 @@ import React from "react"
 
 type OrderDetailsTemplateProps = {
   order: HttpTypes.StoreOrder
+  // Rendered on the server: payment box and per-artisan sub-orders.
+  marketplace?: React.ReactNode
 }
 
 const OrderDetailsTemplate: React.FC<OrderDetailsTemplateProps> = ({
   order,
+  marketplace,
 }) => {
   return (
     <div className="flex flex-col justify-center gap-y-4">
@@ -33,7 +36,8 @@ const OrderDetailsTemplate: React.FC<OrderDetailsTemplateProps> = ({
         className="flex flex-col gap-4 h-full bg-white w-full"
         data-testid="order-details-container"
       >
-        <OrderDetails order={order} showStatus />
+        <OrderDetails order={order} />
+        {marketplace}
         <Items order={order} />
         <ShippingDetails order={order} />
         <OrderSummary order={order} />

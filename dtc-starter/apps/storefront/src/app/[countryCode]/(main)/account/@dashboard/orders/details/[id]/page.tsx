@@ -1,5 +1,6 @@
 import { retrieveOrder } from "@lib/data/orders"
 import OrderDetailsTemplate from "@modules/order/templates/order-details-template"
+import MarketplaceOrderPanel from "@modules/marketplace/templates/marketplace-order-panel"
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
 
@@ -29,5 +30,10 @@ export default async function OrderDetailPage(props: Props) {
     notFound()
   }
 
-  return <OrderDetailsTemplate order={order} />
+  return (
+    <OrderDetailsTemplate
+      order={order}
+      marketplace={<MarketplaceOrderPanel orderId={order.id} />}
+    />
+  )
 }

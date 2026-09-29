@@ -5,14 +5,16 @@ import { HttpTypes } from "@medusajs/types"
 import { getCacheOptions } from "./cookies"
 
 export const listRegions = async () => {
+  // Same 60s window the middleware uses for its region map.
   const next = {
     ...(await getCacheOptions("regions")),
+    revalidate: 60,
   }
 
   return await sdk.client
     .fetch<{ regions: HttpTypes.StoreRegion[] }>(`/store/regions`, {
       method: "GET",
-      cache: "no-store",
+      next,
     })
     .then(({ regions }) => regions)
 }

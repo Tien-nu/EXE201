@@ -13,6 +13,12 @@ const S3_PATHNAME = process.env.MEDUSA_CLOUD_S3_PATHNAME
  */
 const nextConfig = {
   reactStrictMode: true,
+  experimental: {
+    // Artisans upload product photos through a server action.
+    serverActions: {
+      bodySizeLimit: "15mb",
+    },
+  },
   logging: {
     fetches: {
       fullUrl: true,
