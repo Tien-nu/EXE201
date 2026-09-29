@@ -7,7 +7,6 @@ services:
     runtime: node
     plan: free
     region: singapore
-    branch: tien
     rootDir: dtc-starter
     # NODE_ENV=production would skip devDependencies (TypeScript) needed to
     # build. build:render compiles only the API and adds the Admin dashboard
