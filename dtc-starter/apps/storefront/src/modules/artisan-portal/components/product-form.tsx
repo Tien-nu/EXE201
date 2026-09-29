@@ -6,6 +6,7 @@ import {
   uploadArtisanImages,
 } from "@lib/data/artisan-portal"
 import type { ArtisanProduct } from "@lib/marketplace-types"
+import { shrinkImage } from "@lib/util/shrink-image"
 import { useFeedback } from "@modules/common/components/feedback"
 import { Button } from "@modules/common/components/ui"
 import { useParams, useRouter } from "next/navigation"
@@ -49,13 +50,23 @@ export default function ProductForm({ product, categories }: Props) {
   const upload = async (files: FileList | null) => {
     if (!files?.length) return
     setUploading(true)
-    const formData = new FormData()
-    Array.from(files).forEach((file) => formData.append("files", file))
-    const result = await uploadArtisanImages(formData)
+    // One photo per request keeps each request under the host's body limit.
+    const urls: string[] = []
+    let error: string | null = null
+    for (const file of Array.from(files)) {
+      const formData = new FormData()
+      formData.append("files", await shrinkImage(file))
+      const result = await uploadArtisanImages(formData)
+      if (result.error) {
+        error = result.error
+        break
+      }
+      urls.push(...result.urls)
+    }
     setUploading(false)
-    if (result.error) toast.error(result.error)
-    else toast.success(`Đã tải lên ${result.urls.length} ảnh – nhớ bấm Lưu`)
-    setImages((previous) => [...previous, ...result.urls])
+    if (error) toast.error(error)
+    else toast.success(`Đã tải lên ${urls.length} ảnh – nhớ bấm Lưu`)
+    setImages((previous) => [...previous, ...urls])
   }
 
   const save = () =>
