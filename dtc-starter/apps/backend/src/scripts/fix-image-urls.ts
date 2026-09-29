@@ -7,6 +7,8 @@
  * Needs the S3_* variables in .env. Reads the files from this computer:
  * - http://localhost:8000/images/... -> apps/storefront/public/images (demo photos)
  * - http://localhost:9000/static/... -> apps/backend/static (earlier uploads)
+ * Then rebuilds the search index, which keeps its own copy of each thumbnail
+ * (the store listing reads it) and does not see these direct updates.
  */
 import { readFile } from "fs/promises"
 import path from "path"
@@ -90,6 +92,8 @@ export default async function fixImageUrls({ container }: ExecArgs) {
       .where({ id: product.id })
       .update({ thumbnail: await newUrl(product.thumbnail) })
   }
+
+  await container.resolve(Modules.SEARCH).reindex()
 
   logger.info(
     `Fixed ${images.length} image links and ${products.length} thumbnails ` +
