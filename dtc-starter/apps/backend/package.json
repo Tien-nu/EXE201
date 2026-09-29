@@ -14,7 +14,10 @@
   ],
   "scripts": {
     "build": "medusa build",
+    "build:admin": "medusa build --admin-only && node -e \"const fs=require('fs');fs.rmSync('admin-build',{recursive:true,force:true});fs.cpSync('.medusa/admin','admin-build',{recursive:true})\"",
+    "build:render": "MEDUSA_SKIP_ADMIN_BUILD=true medusa build --no-lint && node -e \"require('fs').cpSync('admin-build','.medusa/server/public/admin',{recursive:true})\"",
     "start": "medusa start",
+    "start:render": "cd .medusa/server && NODE_OPTIONS=--max-old-space-size=384 node ../../node_modules/@medusajs/cli/cli.js start",
     "dev": "medusa develop",
     "lint": "medusa lint",
     "test:integration:http": "TEST_TYPE=integration:http NODE_OPTIONS=--experimental-vm-modules jest --silent=false --runInBand --forceExit",

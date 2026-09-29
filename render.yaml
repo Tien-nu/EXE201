@@ -9,18 +9,20 @@ services:
     region: singapore
     branch: tien
     rootDir: dtc-starter
-    # NODE_ENV=production would skip devDependencies (TypeScript, Vite) needed to build.
+    # NODE_ENV=production would skip devDependencies (TypeScript) needed to
+    # build. build:render compiles only the API and adds the Admin dashboard
+    # prebuilt in apps/backend/admin-build: building both at once needs more
+    # memory than Render gives. start:render caps the heap at 384 MB so the
+    # server fits the free plan's 512 MB.
     buildCommand: >-
       npm install -g pnpm@10.11.1 &&
       pnpm install --frozen-lockfile --prod=false &&
-      pnpm --filter @dtc/backend build
-    # The build output resolves its packages from apps/backend/node_modules,
-    # so it starts without a second install. The heap cap keeps Medusa inside
-    # the free plan's 512 MB.
+      pnpm --filter @dtc/backend build:render
+    # Same as `pnpm start:render`, without pnpm staying in memory beside it.
     startCommand: >-
       cd apps/backend/.medusa/server &&
       NODE_OPTIONS=--max-old-space-size=384
-      node ../../node_modules/@medusajs/cli/cli.js start
+      exec node ../../node_modules/@medusajs/cli/cli.js start
     healthCheckPath: /health
     buildFilter:
       paths:

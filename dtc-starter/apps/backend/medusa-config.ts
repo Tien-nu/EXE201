@@ -45,7 +45,11 @@ module.exports = defineConfig({
     }
   },
   admin: {
-    backendUrl: process.env.MEDUSA_BACKEND_URL,
+    // Building the dashboard needs more memory than Render's free plan has,
+    // so Render builds with MEDUSA_SKIP_ADMIN_BUILD=true and copies the
+    // dashboard prebuilt by `pnpm build:admin` (admin-build/). At runtime the
+    // variable is unset and the dashboard is served at /app.
+    disable: process.env.MEDUSA_SKIP_ADMIN_BUILD === 'true',
   },
   modules: [
     {

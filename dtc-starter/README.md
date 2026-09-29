@@ -41,6 +41,17 @@ Email thật: điền `SMTP_USER` / `SMTP_PASS` (Gmail App password) trong `apps
 
 Các script `.js` cũ trong `apps/backend` đọc `DATABASE_URL` từ môi trường: `node --env-file=.env <tên-script>.js`.
 
+## Deploy
+
+Backend + Admin chạy trên Render (`https://exe201-c6xo.onrender.com`, cấu hình trong [`render.yaml`](../render.yaml)), storefront trên Vercel, database và ảnh trên Supabase. Máy ở nhà và bản deploy **dùng chung một database**.
+
+- **Sửa trang Admin** (`apps/backend/src/admin`): chạy `pnpm build:admin` trong `apps/backend` rồi commit thư mục `admin-build/`. Render không đủ RAM để tự build trang Admin nên dùng bản build sẵn này.
+- **Thêm/sửa bảng dữ liệu**: chạy `pnpm medusa db:migrate` ở máy (database dùng chung) trước khi push. Server không tự migrate khi khởi động.
+- **Không** chạy script xoá/seed sản phẩm trong lệnh start: Render free khởi động lại mỗi lần "thức dậy", dữ liệu sẽ bị xoá liên tục.
+- Storefront lấy URL backend và publishable key từ `apps/storefront/.env.production` (giá trị công khai). Biến đặt trên Vercel được ưu tiên hơn file này.
+- Render free ngủ sau 15 phút không có truy cập (các job tự động mỗi phút sẽ dừng theo). Dùng UptimeRobot hoặc cron-job.org gọi `https://exe201-c6xo.onrender.com/health` mỗi 10 phút để giữ server chạy.
+- Ảnh cũ còn link `localhost`: điền `S3_*` vào `apps/backend/.env` rồi chạy `pnpm medusa exec ./src/scripts/fix-image-urls.ts` một lần.
+
 ---
 
 <p align="center">

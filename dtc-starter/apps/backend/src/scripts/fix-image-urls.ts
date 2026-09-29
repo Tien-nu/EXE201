@@ -1,13 +1,12 @@
 /**
- * Moves product image links off localhost after deploying. Safe to run again.
+ * Moves product images that still point at localhost into S3 storage
+ * (Supabase Storage), so they show on the deployed site. Safe to run again.
  *
  *   pnpm medusa exec ./src/scripts/fix-image-urls.ts
  *
- * Needs STOREFRONT_URL (the deployed storefront) and the S3_* variables in .env.
- * - http://localhost:8000/images/... -> <storefront>/images/... (demo photos
- *   shipped in apps/storefront/public/images)
- * - http://localhost:9000/static/... -> the file in ./static is uploaded to
- *   S3 storage and the link replaced by the new one
+ * Needs the S3_* variables in .env. Reads the files from this computer:
+ * - http://localhost:8000/images/... -> apps/storefront/public/images (demo photos)
+ * - http://localhost:9000/static/... -> apps/backend/static (earlier uploads)
  */
 import { readFile } from "fs/promises"
 import path from "path"
@@ -18,8 +17,13 @@ import {
   Modules,
 } from "@medusajs/framework/utils"
 
-const OLD_STOREFRONT = "http://localhost:8000"
-const OLD_STATIC = "http://localhost:9000/static/"
+const SOURCES = [
+  {
+    prefix: "http://localhost:8000/",
+    dir: path.join(process.cwd(), "..", "storefront", "public"),
+  },
+  { prefix: "http://localhost:9000/static/", dir: path.join(process.cwd(), "static") },
+]
 
 const MIME: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -34,51 +38,49 @@ export default async function fixImageUrls({ container }: ExecArgs) {
   const knex = container.resolve(ContainerRegistrationKeys.PG_CONNECTION)
   const fileService = container.resolve(Modules.FILE)
 
-  const storefront = process.env.STOREFRONT_URL
-    ? new URL(process.env.STOREFRONT_URL).origin
-    : null
-  if (!storefront || storefront.includes("localhost")) {
-    throw new MedusaError(
-      MedusaError.Types.INVALID_DATA,
-      "Set STOREFRONT_URL to the deployed storefront first"
-    )
-  }
   if (!process.env.S3_BUCKET) {
     throw new MedusaError(
       MedusaError.Types.INVALID_DATA,
-      "Set the S3_* variables first, or uploads stay on this computer"
+      "Set the S3_* variables first, or the images would stay on this computer"
     )
   }
 
   const uploaded = new Map<string, string>()
   const newUrl = async (url: string): Promise<string> => {
-    if (url.startsWith(OLD_STOREFRONT)) {
-      return storefront + url.slice(OLD_STOREFRONT.length)
-    }
-    if (!url.startsWith(OLD_STATIC)) return url
+    const source = SOURCES.find(({ prefix }) => url.startsWith(prefix))
+    if (!source) return url
     if (!uploaded.has(url)) {
-      const name = decodeURIComponent(url.slice(OLD_STATIC.length))
-      const content = await readFile(path.join(process.cwd(), "static", name))
-      const [file] = await fileService.createFiles([
+      const relative = decodeURIComponent(url.slice(source.prefix.length))
+      const file = path.join(source.dir, relative)
+      const content = await readFile(file).catch(() => null)
+      if (!content) {
+        logger.warn(`Missing ${file}, left ${url} unchanged`)
+        return url
+      }
+      const [stored] = await fileService.createFiles([
         {
-          filename: name,
-          mimeType: MIME[path.extname(name).toLowerCase()] ?? "application/octet-stream",
+          filename: path.basename(relative),
+          mimeType: MIME[path.extname(relative).toLowerCase()] ?? "application/octet-stream",
           content: content.toString("base64"),
           access: "public",
         },
       ])
-      uploaded.set(url, file.url)
+      uploaded.set(url, stored.url)
     }
     return uploaded.get(url)!
   }
 
-  const like = [`${OLD_STOREFRONT}/%`, `${OLD_STATIC}%`]
+  const onLocalhost = (column: string) => (q: any) =>
+    SOURCES.reduce((where, { prefix }) => where.orWhereLike(column, `${prefix}%`), q)
+
   const images: { id: string; url: string }[] = await knex("image")
     .select("id", "url")
-    .where((q) => q.whereLike("url", like[0]).orWhereLike("url", like[1]))
+    .whereNull("deleted_at")
+    .where(onLocalhost("url"))
   const products: { id: string; thumbnail: string }[] = await knex("product")
     .select("id", "thumbnail")
-    .where((q) => q.whereLike("thumbnail", like[0]).orWhereLike("thumbnail", like[1]))
+    .whereNull("deleted_at")
+    .where(onLocalhost("thumbnail"))
 
   for (const image of images) {
     await knex("image").where({ id: image.id }).update({ url: await newUrl(image.url) })
