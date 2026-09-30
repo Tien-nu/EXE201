@@ -1,7 +1,7 @@
 const { Client } = require('pg');
 const fs = require('fs');
 const client = new Client({
-  connectionString: 'postgresql://postgres.cfautecietvchjeulwwz:Jokerrefundsk5@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres'
+  connectionString: process.env.DATABASE_URL
 });
 client.connect().then(async () => {
   const res = await client.query("SELECT id FROM api_key WHERE type = 'publishable' LIMIT 1;");

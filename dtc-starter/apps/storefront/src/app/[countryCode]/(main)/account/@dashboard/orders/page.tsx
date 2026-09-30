@@ -1,8 +1,8 @@
 import { Metadata } from "next"
 
 import OrderOverview from "@modules/account/components/order-overview"
-import { notFound } from "next/navigation"
 import { listOrders } from "@lib/data/orders"
+import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import Divider from "@modules/common/components/divider"
 import TransferRequestForm from "@modules/account/components/transfer-request-form"
 
@@ -12,10 +12,21 @@ export const metadata: Metadata = {
 }
 
 export default async function Orders() {
-  const orders = await listOrders()
+  // An expired or invalid login must not crash the page.
+  const orders = await listOrders().catch(() => null)
 
   if (!orders) {
-    notFound()
+    return (
+      <div className="w-full" data-testid="orders-page-wrapper">
+        <h1 className="text-2xl-semi mb-4">Orders</h1>
+        <p className="text-base-regular">
+          Không tải được đơn hàng – có thể phiên đăng nhập đã hết hạn.{" "}
+          <LocalizedClientLink href="/account" className="text-violet-700 underline">
+            Đăng nhập lại
+          </LocalizedClientLink>
+        </p>
+      </div>
+    )
   }
 
   return (

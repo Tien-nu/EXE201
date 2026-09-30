@@ -3,6 +3,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
+      "env": ["NEXT_PUBLIC_*", "MEDUSA_*"],
       "outputs": ["dist/**", ".next/**"]
     },
     "dev": {

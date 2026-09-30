@@ -18,10 +18,9 @@ export default async function setupVND({ container }: ExecArgs) {
   
   if (stores[0]) {
     logger.info(`Updating store ${stores[0].id}...`)
-    await storeModule.updateStores([{
-      id: stores[0].id,
+    await storeModule.updateStores(stores[0].id, {
       supported_currencies: [{ currency_code: 'vnd', is_default: true }]
-    }])
+    })
   }
 
   // 2. Update Region
@@ -32,12 +31,11 @@ export default async function setupVND({ container }: ExecArgs) {
 
   if (regions[0]) {
     logger.info(`Updating region ${regions[0].id}...`)
-    await regionModule.updateRegions([{
-      id: regions[0].id,
+    await regionModule.updateRegions(regions[0].id, {
       name: 'Vietnam',
       currency_code: 'vnd',
       countries: ['vn']
-    }])
+    })
   }
 
   logger.info(`Done updating store and region.`)

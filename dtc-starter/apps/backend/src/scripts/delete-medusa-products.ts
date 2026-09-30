@@ -16,7 +16,7 @@ export default async function clearMedusaProducts({ container }: ExecArgs) {
   if (allProducts.length > 0) {
     const ids = allProducts.map(p => p.id as string)
     await deleteProductsWorkflow(container).run({
-      input: ids
+      input: { ids }
     })
     logger.info(`Deleted ${ids.length} products!`)
   } else {

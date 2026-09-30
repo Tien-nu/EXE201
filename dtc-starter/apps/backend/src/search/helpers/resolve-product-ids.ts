@@ -32,7 +32,10 @@ async function relatedProductIds(
     withDeleted,
   });
 
-  return (data as Record<string, any>[])
+  // A hard-deleted row (e.g. the options of a deleted product) comes back as
+  // an empty slot; there is nothing left to re-index for it.
+  return (data as (Record<string, any> | null | undefined)[])
+    .filter((row): row is Record<string, any> => Boolean(row))
     .flatMap(pick)
     .filter((id): id is string => Boolean(id));
 }

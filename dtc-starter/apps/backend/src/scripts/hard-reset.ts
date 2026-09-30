@@ -7,7 +7,7 @@ export default async function hardReset({ container }: ExecArgs) {
   
   // To perform raw SQL queries in Medusa v2, we usually resolve the Knex instance.
   // Or we can just use the internal query builder.
-  const dbConfig = container.resolve("pgConnection")
+  const dbConfig = container.resolve<import("@medusajs/framework/mikro-orm/knex").Knex>("pgConnection")
   
   if (dbConfig) {
     try {

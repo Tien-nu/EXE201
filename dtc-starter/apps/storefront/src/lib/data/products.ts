@@ -56,8 +56,11 @@ export const listProducts = async ({
     ...(await getAuthHeaders()),
   }
 
+  // Prices and stock can be changed straight in the DB (scripts), which never
+  // triggers a revalidation, so cache for a short time instead of forever.
   const next = {
     ...(await getCacheOptions("products")),
+    revalidate: 60,
   }
 
   return sdk.client
@@ -75,7 +78,6 @@ export const listProducts = async ({
         },
         headers,
         next,
-        cache: "no-store",
       }
     )
     .then(({ products, count }) => {

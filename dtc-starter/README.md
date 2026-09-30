@@ -1,3 +1,59 @@
+# Yarnly – sàn đồ len handmade (EXE201)
+
+Sàn trung gian giữa khách và nghệ nhân làm đồ len, xây trên Medusa v2 (backend + trang Admin) và Next.js (storefront).
+
+## Vai trò
+
+| Vai trò | Ở đâu | Làm được gì |
+|---|---|---|
+| Guest | `http://localhost:8000/vn` | Xem, tìm sản phẩm, xem gian hàng, thêm giỏ. Không thanh toán được – phải đăng nhập. |
+| User | như trên | Đặt hàng COD / chuyển khoản (VietQR, 10 phút), theo dõi đơn con, huỷ khi nghệ nhân chưa nhận, gửi yêu cầu làm riêng. |
+| Nghệ nhân | `http://localhost:8000/vn/kenh-nghe-nhan` | Đăng ký (chờ duyệt), quản lý sản phẩm (có sẵn / làm theo đơn), nhận – từ chối đơn trong 12 giờ, báo "Đã làm xong", báo giá làm riêng, xem thu nhập. |
+| Admin | `http://localhost:9000/app` → **Nghệ nhân / Đơn sàn / Đối soát** | Duyệt / tạo / khoá nghệ nhân, xác nhận chuyển khoản, nhập vận đơn, đánh dấu đã giao, hoàn tiền, chuyển tiền thứ Hai, phí sàn. |
+
+Tự động mỗi phút: huỷ đơn chuyển khoản quá 10 phút, huỷ đơn nghệ nhân không nhận trong 12 giờ, hoàn thành đơn 2 ngày sau khi giao. Thứ Hai 7:00 tạo sẵn các khoản cần chuyển cho nghệ nhân.
+
+Code chính: `apps/backend/src/modules/marketplace` (bảng dữ liệu), `apps/backend/src/lib/marketplace` (nghiệp vụ), `apps/backend/src/api/{store,artisan,admin}` (API), `apps/backend/src/admin/routes` (trang Admin), `apps/storefront/src/app/[countryCode]/(artisan)` (Kênh nghệ nhân).
+
+## Chạy dự án
+
+```bash
+npm install -g pnpm@10.11.1   # một lần
+cd dtc-starter
+pnpm install
+cp apps/backend/.env.template apps/backend/.env            # điền DATABASE_URL
+cp apps/storefront/.env.template apps/storefront/.env.local  # điền NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
+pnpm dev                      # backend :9000 + storefront :8000 (khi đang sửa code)
+pnpm demo                     # storefront chế độ production: bấm chuyển trang nhanh (khi demo/dùng thử)
+```
+
+`pnpm dev` biên dịch từng trang ở lần mở đầu tiên (có trang mất 5–10 giây) và không tải trước trang khi rê chuột qua link. `pnpm demo` build storefront một lần (khoảng 1 phút) rồi chạy bản production: trang mở trong khoảng 0,1–0,5 giây. Sửa code storefront xong thì phải chạy lại `pnpm demo`.
+
+Database mới (chạy một lần trong `apps/backend`):
+
+```bash
+pnpm medusa db:migrate
+pnpm medusa exec ./src/scripts/setup-marketplace.ts   # gian hàng mặc định, phí ship 0đ (trả khi nhận)
+pnpm medusa user -e admin@example.com -p <mật-khẩu>    # tài khoản Admin
+```
+
+Email thật: điền `SMTP_USER` / `SMTP_PASS` (Gmail App password) trong `apps/backend/.env` và Gmail Admin ở trang **Đối soát**. Không điền thì email chỉ được ghi ra log.
+
+Các script `.js` cũ trong `apps/backend` đọc `DATABASE_URL` từ môi trường: `node --env-file=.env <tên-script>.js`.
+
+## Deploy
+
+Backend + Admin chạy trên Render (`https://exe201-c6xo.onrender.com`, cấu hình trong [`render.yaml`](../render.yaml)), storefront trên Vercel. Bản deploy dùng database riêng (đặt ở biến `DATABASE_URL` trên Render), không phải database trong `apps/backend/.env` ở máy.
+
+- **Sửa trang Admin** (`apps/backend/src/admin`): chạy `pnpm build:admin` trong `apps/backend` rồi commit thư mục `admin-build/`. Render không đủ RAM để tự build trang Admin nên dùng bản build sẵn này.
+- **Thêm/sửa bảng dữ liệu**: chạy `pnpm medusa db:migrate` với `DATABASE_URL` của bản deploy trước khi push. Server không tự migrate khi khởi động.
+- **Không** chạy script xoá/seed sản phẩm trong lệnh start: Render free khởi động lại mỗi lần "thức dậy", dữ liệu sẽ bị xoá liên tục.
+- Storefront lấy URL backend và publishable key từ `apps/storefront/.env.production` (giá trị công khai). Biến đặt trên Vercel được ưu tiên hơn file này.
+- Render free ngủ sau 15 phút không có truy cập (các job tự động mỗi phút sẽ dừng theo). Dùng UptimeRobot hoặc cron-job.org gọi `https://exe201-c6xo.onrender.com/health` mỗi 10 phút để giữ server chạy.
+- Ảnh cũ còn link `localhost`: điền `S3_*` vào `apps/backend/.env` rồi chạy `pnpm medusa exec ./src/scripts/fix-image-urls.ts` một lần.
+
+---
+
 <p align="center">
   <a href="https://www.medusajs.com">
   <picture>

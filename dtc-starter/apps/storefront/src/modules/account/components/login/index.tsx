@@ -3,6 +3,7 @@ import { LOGIN_VIEW } from "@modules/account/templates/login-template"
 import ErrorMessage from "@modules/checkout/components/error-message"
 import { SubmitButton } from "@modules/checkout/components/submit-button"
 import Input from "@modules/common/components/input"
+import { useSearchParams } from "next/navigation"
 import { useActionState } from "react"
 
 type Props = {
@@ -11,6 +12,7 @@ type Props = {
 
 const Login = ({ setCurrentView }: Props) => {
   const [message, formAction] = useActionState(login, null)
+  const fromCheckout = useSearchParams().get("next") === "checkout"
 
   return (
     <div
@@ -21,6 +23,12 @@ const Login = ({ setCurrentView }: Props) => {
       <p className="text-center text-base-regular text-ui-fg-base mb-8">
         Sign in to access an enhanced shopping experience.
       </p>
+      {fromCheckout && (
+        <div className="w-full mb-6 text-center text-base-regular bg-amber-50 border border-amber-200 rounded-rounded p-4">
+          Vui lòng <strong>đăng nhập hoặc đăng ký</strong> để thanh toán. Giỏ
+          hàng của bạn vẫn được giữ nguyên.
+        </div>
+      )}
       {message?.state === "verification_required" && (
         <div
           className="w-full mb-6 text-center text-base-regular text-ui-fg-base bg-ui-bg-subtle border border-ui-border-base rounded-rounded p-4"
